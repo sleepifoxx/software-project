@@ -1,6 +1,7 @@
 from sqlalchemy import Integer, Column, String, ForeignKey, Float
 from sqlalchemy.orm import relationship
-from app.database import Base
+from database import Base
+
 
 class PostComments(Base):
     __tablename__ = 'PostComments'
