@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float, DateTime, func
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -14,6 +14,7 @@ class Posts(Base):
     address = Column(String, nullable=False)
     room_num = Column(Integer, nullable=False)
     avg_rating = Column(Float, nullable=True)
+    post_date = Column(DateTime, default=func.now())
 
     owner = relationship('Users', back_populates='posts')
     images = relationship('PostImages', back_populates='post',

@@ -15,6 +15,7 @@ class Users(Base):
     address = Column(String, nullable=True)
     gender = Column(String, nullable=True)
     birthday = Column(Date, nullable=True)
+    full_name = Column(String, nullable=True)
 
     posts = relationship('Posts', back_populates='owner',
                          cascade='all, delete-orphan')
