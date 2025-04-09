@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float
 from sqlalchemy.orm import relationship
-from app.database import Base
+from database import Base
+
 
 class Posts(Base):
     __tablename__ = 'Posts'
@@ -15,6 +16,9 @@ class Posts(Base):
     avg_rating = Column(Float, nullable=True)
 
     owner = relationship('Users', back_populates='posts')
-    images = relationship('PostImages', back_populates='post', cascade='all, delete-orphan')
-    comments = relationship('PostComments', back_populates='post', cascade='all, delete-orphan')
-    user_favourites = relationship('Favourites', back_populates='post', cascade='all, delete')
+    images = relationship('PostImages', back_populates='post',
+                          cascade='all, delete-orphan')
+    comments = relationship(
+        'PostComments', back_populates='post', cascade='all, delete-orphan')
+    user_favourites = relationship(
+        'Favourites', back_populates='post', cascade='all, delete')

@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Date
 from sqlalchemy.orm import relationship
-from app.database import Base
+from database import Base
+
 
 class Users(Base):
     __tablename__ = "Users"
@@ -15,7 +16,9 @@ class Users(Base):
     gender = Column(String, nullable=True)
     birthday = Column(Date, nullable=True)
 
-
-    posts = relationship('Posts', back_populates='owner', cascade='all, delete-orphan')
-    comments = relationship('PostComments', back_populates='user', cascade='all, delete-orphan')
-    user_favourites = relationship('Favourites', back_populates='user', cascade='all, delete-orphan')
+    posts = relationship('Posts', back_populates='owner',
+                         cascade='all, delete-orphan')
+    comments = relationship(
+        'PostComments', back_populates='user', cascade='all, delete-orphan')
+    user_favourites = relationship(
+        'Favourites', back_populates='user', cascade='all, delete-orphan')
