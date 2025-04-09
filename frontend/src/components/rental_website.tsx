@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import Image from "next/image"
+import Cookies from "js-cookie"
 
 type Post = {
   id: number
@@ -28,10 +29,12 @@ type Room = Post
 
 
 export default function RentalWebsite() {
-  
+  const [username, setUsername] = useState("")
   const [rooms, setRooms] = useState<Room[]>([])
 
   useEffect(() => {
+    const storedUsername = Cookies.get("username")
+    if (storedUsername) setUsername(storedUsername)
     const fetchRooms = async () => {
       const res = await getPosts(8)
       if (res.status === "success") {
@@ -48,6 +51,11 @@ export default function RentalWebsite() {
   
     fetchRooms()
   }, [])
+const handleLogout = () => {
+  Cookies.remove("username") // ✅ Xoá cookie
+  window.location.reload()
+}
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -74,11 +82,28 @@ export default function RentalWebsite() {
             </Link>
           </nav>
           <div className="flex items-center gap-4">
-            <Button variant="outline" className="hidden md:flex">
-              Đăng nhập
-            </Button>
-            <Button>Đăng ký</Button>
-          </div>
+  {username ? (
+    <>
+      <span className="text-sm font-medium">Xin chào, {username}</span>
+      <Button variant="outline" onClick={handleLogout}>
+        Đăng xuất
+      </Button>
+    </>
+  ) : (
+    <>
+      <Link href="/login">
+        <Button variant="outline" className="hidden md:flex">
+          Đăng nhập
+        </Button>
+      </Link>
+      <Link href="/register">
+        <Button>
+          Đăng kí
+        </Button>
+      </Link>
+    </>
+  )}
+</div>
         </div>
       </header>
 
@@ -187,9 +212,6 @@ export default function RentalWebsite() {
         <div className="absolute top-2 right-2 flex gap-2">
           <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full">
             <Heart className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full">
-            <Share className="h-4 w-4" />
           </Button>
         </div>
         <Badge className="absolute bottom-2 left-2">Mới</Badge>
