@@ -1,5 +1,5 @@
 "use client"
-
+import { useRouter, useSearchParams } from "next/navigation" // 👈
 import type React from "react"
 import { useState } from "react"
 import { Eye, EyeOff, Lock, Mail, MapPin } from "lucide-react"
@@ -13,6 +13,9 @@ import { Separator } from "@/components/ui/separator"
 import Cookies from "js-cookie"
 
 export default function LoginPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get("redirect") || "/"
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [username, setUsername] = useState("")
@@ -27,8 +30,8 @@ export default function LoginPage() {
     try {
       const res = await login(username, password)
       if (res.status === "success") {
-        Cookies.set("username", res.user.username) // ✅ Lưu username vào cookie
-        window.location.href = "/" // Chuyển về trang chủ
+        Cookies.set("username", res.user.username)
+        router.push(redirectTo) // ✅ Chuyển tới trang chỉ định (VD: /post)
       } else {
         setError("Tài khoản hoặc mật khẩu không đúng")
       }
