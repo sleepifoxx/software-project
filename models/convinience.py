@@ -1,11 +1,11 @@
-from database import Base
+from app.database import Base
 from sqlalchemy import Column, Integer, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 
 class Convinience(Base):
     __tablename__ = 'Convinience'
 
-    id = Column(Integer, primary_Key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     post_id = Column(Integer, ForeignKey('Posts.id', ondelete='CASCADE'))
     wifi = Column(Boolean, default=False)
     air_conditioner = Column(Boolean, default=False)

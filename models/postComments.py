@@ -1,6 +1,6 @@
 from sqlalchemy import Integer, Column, String, ForeignKey, Float, func, DateTime
 from sqlalchemy.orm import relationship
-from database import Base
+from app.database import Base
 
 
 class PostComments(Base):

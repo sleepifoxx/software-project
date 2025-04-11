@@ -1,6 +1,6 @@
 from sqlalchemy import Integer, ForeignKey, Column, DateTime, func
 from sqlalchemy.orm import relationship
-from database import Base
+from app.database import Base
 
 
 class Favourites(Base):

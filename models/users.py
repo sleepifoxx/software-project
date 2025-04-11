@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Date
+from sqlalchemy import Column, Integer, String, Date, DateTime, func
 from sqlalchemy.orm import relationship
-from database import Base
+from app.database import Base
 
 
 class Users(Base):
@@ -15,6 +15,7 @@ class Users(Base):
     gender = Column(String, nullable=True)
     birthday = Column(Date, nullable=True)
     full_name = Column(String, nullable=True)
+    created_at = Column(DateTime, default=func.now())
 
     posts = relationship('Posts', back_populates='owner', cascade='all, delete-orphan')
     comments = relationship('PostComments', back_populates='user', cascade='all, delete-orphan')
