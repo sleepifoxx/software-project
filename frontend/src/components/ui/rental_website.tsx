@@ -124,6 +124,7 @@ export default function RentalWebsite() {
               <SelectValue placeholder="Giá tiền" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="0">Bỏ chọn</SelectItem>
               <SelectItem value="1">Dưới 1 triệu</SelectItem>
               <SelectItem value="2">1 - 2 triệu</SelectItem>
               <SelectItem value="3">2 - 3 triệu</SelectItem>

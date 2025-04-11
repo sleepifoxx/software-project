@@ -13,6 +13,7 @@
   import Link from "next/link"
   import Image from "next/image"
   import Cookies from "js-cookie"
+  import { searchPosts } from "@/lib/api" 
 
   type Post = {
     id: number
@@ -29,7 +30,10 @@
 
 
   export default function RentalWebsite() {
-    
+    const [locationQuery, setLocationQuery] = useState("")
+    const [priceFilter, setPriceFilter] = useState("")    
+    const [filteredRooms, setFilteredRooms] = useState<Room[]>([])
+    const [hasSearched, setHasSearched] = useState(false)
     const [offset, setOffset] = useState(0)
     const [hasMore, setHasMore] = useState(true)
     const [username, setUsername] = useState("")
@@ -55,9 +59,40 @@
         }
       }
     }
+    const handleSearch = async () => {
+      const trimmedLocation = locationQuery.trim()
     
+      // Nếu không nhập gì ➜ quay lại trạng thái ban đầu
+      if (!trimmedLocation && !priceFilter) {
+        setFilteredRooms([])
+        setHasSearched(false)
+        return
+      }
     
-
+      try {
+        const res = await searchPosts(trimmedLocation, priceFilter)
+        if (res.status === "success") {
+          const postsWithImages = await Promise.all(
+            res.posts.map(async (post: Post) => {
+              const imgRes = await getPostImages(post.id)
+              const image = imgRes.images?.[0]?.image_url || ""
+              return { ...post, image }
+            })
+          )
+          setFilteredRooms(postsWithImages)
+          setHasSearched(true)
+        }
+      } catch (err) {
+        console.error("Lỗi tìm kiếm:", err)
+        setFilteredRooms([])
+        setHasSearched(true)
+      }
+    }
+    useEffect(() => {
+      if (!locationQuery.trim() && !priceFilter) {
+        setHasSearched(false)
+      }
+    }, [locationQuery, priceFilter])    
     useEffect(() => {
       const storedUsername = Cookies.get("username")
       if (storedUsername) setUsername(storedUsername)
@@ -65,9 +100,11 @@
     }, [])
   const handleLogout = () => {
     Cookies.remove("username") // ✅ Xoá cookie
-    window.location.reload()
+    window.location.reload()  
   }
-
+  const activeRooms = (!hasSearched || (!locationQuery.trim() && !priceFilter))
+  ? rooms
+  : filteredRooms
     return (
       <div className="flex flex-col min-h-screen">
         <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -154,23 +191,38 @@
         <TabsContent value="rent" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
-              <Input placeholder="Nhập địa điểm, khu vực..." className="h-10" />
+            <Input
+  placeholder="Nhập địa điểm, khu vực..."
+  className="h-10"
+  value={locationQuery}
+  onChange={(e) => setLocationQuery(e.target.value)}
+/>
             </div>
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Giá tiền" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Dưới 1 triệu</SelectItem>
-                <SelectItem value="2">1 - 2 triệu</SelectItem>
-                <SelectItem value="3">2 - 3 triệu</SelectItem>
-                <SelectItem value="4">3 - 5 triệu</SelectItem>
-                <SelectItem value="5">Trên 5 triệu</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button className="h-10">
-              <Search className="mr-2 h-4 w-4" /> Tìm kiếm
-            </Button>
+            <Select
+  value={priceFilter === "" ? undefined : priceFilter}
+  onValueChange={(val) => {
+    if (val === "0") {
+      setPriceFilter("")
+    } else {
+      setPriceFilter(val)
+    }
+  }}
+>
+  <SelectTrigger>
+    <SelectValue placeholder="Giá tiền" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="0">-- Bỏ chọn --</SelectItem>
+    <SelectItem value="1">&lt; 1 triệu</SelectItem>
+    <SelectItem value="2">1 - 2 triệu</SelectItem>
+    <SelectItem value="3">2 - 3 triệu</SelectItem>
+    <SelectItem value="4">3 - 5 triệu</SelectItem>
+    <SelectItem value="5">&gt; 5 triệu</SelectItem>
+  </SelectContent>
+</Select>
+<Button className="h-10" onClick={handleSearch}>
+  <Search className="mr-2 h-4 w-4" /> Tìm kiếm
+</Button>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -222,7 +274,9 @@
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 items-stretch">
-    {rooms.map((room) => (
+            {
+  (!hasSearched || (!locationQuery.trim() && !priceFilter)) ? (
+    rooms.map((room) => (
       <Card key={room.id} className="overflow-hidden group h-full flex flex-col">
         <div className="relative">
           <img
@@ -267,7 +321,64 @@
           </Button>
         </CardFooter>
       </Card>
-    ))}
+    ))
+  ) : (
+    filteredRooms.length > 0 ? (
+      filteredRooms.map((room) => (
+        <Card key={room.id} className="overflow-hidden group h-full flex flex-col">
+          <div className="relative">
+            <img
+              src={room.image}
+              alt={`Phòng trọ ${room.title}`}
+              className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+            />
+            <div className="absolute top-2 right-2 flex gap-2">
+              <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full">
+                <Heart className="h-4 w-4" />
+              </Button>
+            </div>
+            <Badge className="absolute bottom-2 left-2">Mới</Badge>
+          </div>
+
+          <CardHeader className="p-4">
+            <CardTitle className="text-lg">{room.title}</CardTitle>
+            <CardDescription className="flex items-center">
+              <MapPin className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+              {room.address}
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="p-4 pt-0 space-y-2">
+            <div className="flex justify-between">
+              <span className="font-medium text-primary">{room.price}</span>
+              <span className="text-sm text-muted-foreground">{room.area ?? "20"}m²</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Star className="h-4 w-4 fill-primary text-primary" />
+              <Star className="h-4 w-4 fill-primary text-primary" />
+              <Star className="h-4 w-4 fill-primary text-primary" />
+              <Star className="h-4 w-4 fill-primary text-primary" />
+              <Star className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground ml-1">(12 đánh giá)</span>
+            </div>
+          </CardContent>
+
+          <CardFooter className="p-4 pt-0 mt-auto">
+            <Button variant="outline" className="w-full">
+              Xem chi tiết
+            </Button>
+          </CardFooter>
+        </Card>
+      ))
+    ) : (
+      <div className="col-span-full text-center text-muted-foreground">
+        Không tìm thấy phòng trọ phù hợp.
+      </div>
+    )
+  )
+}
+
+
   </div>
             {hasMore && (
     <div className="flex justify-center">

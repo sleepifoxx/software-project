@@ -27,3 +27,10 @@ export const login = async (username: string, password: string) => {
   })
   return res.data
 }
+
+export async function searchPosts(location = "", price = "") {
+  const res = await axios.get("http://localhost:8000/search-posts", {
+    params: { location, price }
+  })
+  return res.data
+}
