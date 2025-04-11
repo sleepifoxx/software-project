@@ -1,11 +1,10 @@
-from fastapi import FastAPI, Depends, HTTPException, Body, Query, Path
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import desc, func, update, delete
+from sqlalchemy import desc, func, delete, update
 from database import get_db
 from typing import Optional, List
 from datetime import date
-from pydantic import BaseModel
 from models.users import Users
 from models.posts import Posts
 from models.favourites import Favourites
@@ -16,7 +15,7 @@ from models.convinience import Convinience
 from fastapi.middleware.cors import CORSMiddleware
 
 
-app = FastAPI(title="Accommodation API", description="API for accommodation platform")
+app = FastAPI(title="Nhatro.vn API", description="API for Nhatro.vn")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,9 +40,10 @@ async def login(email: str, password: str, db: AsyncSession = Depends(get_db)):
 
 
 @app.post("/signup", tags=["Tài khoản"])
-async def signup(email: str, password: str, contact_number: str, full_name: str, db: AsyncSession = Depends(get_db)):
+async def signup(email: str, password: str, contact_number: Optional[str] = None, full_name: Optional[str] = None, db: AsyncSession = Depends(get_db)):
     """
-    Truyền vào email, password, contact_number và full_name để đăng ký tài khoản mới.
+    Truyền vào email, password để đăng ký tài khoản mới.
+    contact_number và full_name là các trường tùy chọn.
     Nếu email đã tồn tại, trả về thông báo lỗi.
     Nếu không, tạo tài khoản mới và lưu vào cơ sở dữ liệu.
     """
@@ -60,10 +60,10 @@ async def signup(email: str, password: str, contact_number: str, full_name: str,
 @app.put("/update-user", tags=["Tài khoản"])
 async def update_user(
     user_id: int, 
-    email: str, 
-    password: str, 
-    contact_number: str, 
-    full_name: str, 
+    password: str,
+    email: Optional[str] = None,
+    contact_number: Optional[str] = None, 
+    full_name: Optional[str] = None, 
     avatar_url: Optional[str] = None, 
     address: Optional[str] = None, 
     gender: Optional[str] = None, 
@@ -185,8 +185,9 @@ async def create_post(
     title: str,
     description: str,
     price: int,
+    room_num: int,
     type: str,
-    deposit: int,
+    deposit: str,  # Changed to str to match model
     electricity_fee: int,
     water_fee: int,
     internet_fee: int,
@@ -195,9 +196,8 @@ async def create_post(
     district: str,
     rural: str,
     street: str,
-    room_num: Optional[int] = None,
+    detailed_address: str,  # Required field
     floor_num: Optional[str] = None,
-    detailed_address: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -239,8 +239,9 @@ async def update_post(
     title: str,
     description: str,
     price: int,
+    room_num: int,
     type: str,
-    deposit: int,
+    deposit: str,  # Changed to str to match model
     electricity_fee: int,
     water_fee: int,
     internet_fee: int,
@@ -249,9 +250,8 @@ async def update_post(
     district: str,
     rural: str,
     street: str,
-    room_num: Optional[int] = None,
+    detailed_address: str,  # Required field
     floor_num: Optional[str] = None,
-    detailed_address: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -337,6 +337,56 @@ async def search_posts(
     posts = result.scalars().all()
     return {"status": "success", "posts": posts, "count": len(posts)}
 
+@app.get("/get-posts-by-filter", tags=["Bài đăng"])
+async def get_posts_by_filter(
+    limit: int = 10, 
+    offset: int = 0,
+    province: Optional[str] = None,
+    district: Optional[str] = None, 
+    min_price: Optional[int] = None,
+    max_price: Optional[int] = None,
+    room_num: Optional[int] = None,
+    has_wifi: Optional[bool] = None,
+    has_ac: Optional[bool] = None,
+    has_parking: Optional[bool] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Lấy danh sách bài đăng với bộ lọc phức tạp bao gồm cả tiện ích.
+    """
+    query = select(Posts)
+    
+    # Apply basic filters
+    if province:
+        query = query.where(Posts.province == province)
+    if district:
+        query = query.where(Posts.district == district)
+    if min_price is not None:
+        query = query.where(Posts.price >= min_price)
+    if max_price is not None:
+        query = query.where(Posts.price <= max_price)
+    if room_num is not None:
+        query = query.where(Posts.room_num == room_num)
+    
+    # Apply convenience filters if specified
+    if any([has_wifi, has_ac, has_parking]):
+        query = query.join(Convinience, Posts.id == Convinience.post_id)
+        
+        if has_wifi:
+            query = query.where(Convinience.wifi == True)
+        if has_ac:
+            query = query.where(Convinience.air_conditioner == True)
+        if has_parking:
+            query = query.where(Convinience.parking_lot == True)
+    
+    # Apply pagination
+    query = query.order_by(desc(Posts.post_date)).offset(offset).limit(limit)
+    
+    result = await db.execute(query)
+    posts = result.scalars().all()
+    
+    return {"status": "success", "posts": posts, "count": len(posts)}
+
 
 # ----- POST IMAGES ENDPOINTS -----
 @app.post("/add-post-image", tags=["Hình ảnh"])
@@ -355,6 +405,26 @@ async def add_post_image(post_id: int, image_url: str, db: AsyncSession = Depend
     await db.commit()
     await db.refresh(new_image)
     return {"status": "success", "message": "Image added successfully", "image": new_image}
+
+@app.post("/add-post-images", tags=["Hình ảnh"])
+async def add_post_images(post_id: int, image_urls: List[str], db: AsyncSession = Depends(get_db)):
+    """
+    Thêm nhiều hình ảnh cho bài đăng cùng một lúc.
+    """
+    # Verify post exists
+    post_result = await db.execute(select(Posts).where(Posts.id == post_id))
+    post = post_result.scalars().first()
+    if not post:
+        return {"status": "fail", "message": "Post not found"}
+    
+    new_images = []
+    for url in image_urls:
+        new_image = PostImages(post_id=post_id, image_url=url)
+        db.add(new_image)
+        new_images.append(new_image)
+    
+    await db.commit()
+    return {"status": "success", "message": f"Added {len(new_images)} images successfully"}
 
 @app.get("/get-post-images/{post_id}", tags=["Hình ảnh"])
 async def get_post_images(post_id: int, db: AsyncSession = Depends(get_db)):
@@ -671,28 +741,31 @@ async def add_convenience(
     existing_convenience = convenience_result.scalars().first()
     
     if existing_convenience:
-        return {"status": "fail", "message": "Convenience information already exists for this post"}
+        return {"status": "fail", "message": "Convenience information already exists for this post, use update endpoint instead"}
     
-    new_convenience = Convinience(
-        post_id=post_id,
-        wifi=wifi,
-        air_conditioner=air_conditioner,
-        fridge=fridge,
-        washing_machine=washing_machine,
-        parking_lot=parking_lot,
-        security=security,
-        kitchen=kitchen,
-        private_bathroom=private_bathroom,
-        furniture=furniture,
-        bacony=bacony,
-        elevator=elevator,
-        pet_allowed=pet_allowed
-    )
-    
-    db.add(new_convenience)
-    await db.commit()
-    await db.refresh(new_convenience)
-    return {"status": "success", "message": "Convenience information added successfully", "convenience": new_convenience}
+    try:
+        new_convenience = Convinience(
+            post_id=post_id,
+            wifi=wifi,
+            air_conditioner=air_conditioner,
+            fridge=fridge,
+            washing_machine=washing_machine,
+            parking_lot=parking_lot,
+            security=security,
+            kitchen=kitchen,
+            private_bathroom=private_bathroom,
+            furniture=furniture,
+            bacony=bacony,
+            elevator=elevator,
+            pet_allowed=pet_allowed
+        )
+        
+        db.add(new_convenience)
+        await db.commit()
+        await db.refresh(new_convenience)
+        return {"status": "success", "message": "Convenience information added successfully", "convenience": new_convenience}
+    except Exception as e:
+        return {"status": "fail", "message": f"Error creating convenience: {str(e)}"}
 
 @app.get("/get-post-convenience/{post_id}", tags=["Tiện ích"])
 async def get_post_convenience(post_id: int, db: AsyncSession = Depends(get_db)):
@@ -761,4 +834,47 @@ async def delete_convenience(post_id: int, db: AsyncSession = Depends(get_db)):
         return {"status": "success", "message": "Convenience information deleted successfully"}
     else:
         return {"status": "fail", "message": "Convenience information not found for this post"}
+
+
+# ----- STATISTICS ENDPOINTS -----
+@app.get("/get-user-stats/{user_id}", tags=["Thống kê"])
+async def get_user_stats(user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Lấy thống kê về hoạt động của người dùng.
+    """
+    # Check if user exists
+    user_result = await db.execute(select(Users).where(Users.id == user_id))
+    user = user_result.scalars().first()
+    if not user:
+        return {"status": "fail", "message": "User not found"}
+    
+    # Get posts count
+    posts_query = select(func.count(Posts.id)).where(Posts.user_id == user_id)
+    posts_count = await db.execute(posts_query)
+    posts_count = posts_count.scalar() or 0
+    
+    # Get comments count
+    comments_query = select(func.count(PostComments.id)).where(PostComments.user_id == user_id)
+    comments_count = await db.execute(comments_query)
+    comments_count = comments_count.scalar() or 0
+    
+    # Get favorites count
+    favorites_query = select(func.count(Favourites.post_id)).where(Favourites.user_id == user_id)
+    favorites_count = await db.execute(favorites_query)
+    favorites_count = favorites_count.scalar() or 0
+    
+    # Get history count
+    history_query = select(func.count(History.post_id)).where(History.user_id == user_id)
+    history_count = await db.execute(history_query)
+    history_count = history_count.scalar() or 0
+    
+    return {
+        "status": "success",
+        "stats": {
+            "posts_count": posts_count,
+            "comments_count": comments_count,
+            "favorites_count": favorites_count,
+            "history_count": history_count
+        }
+    }
 
