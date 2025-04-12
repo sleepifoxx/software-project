@@ -66,6 +66,9 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [phone, setPhone] = useState("")
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,7 +84,10 @@ export default function RegisterPage() {
     try {
       const res = await signup(email, password)
         if (res.status === "success") {
-            Cookies.set("username", res.user.username) // ✅ Lưu bằng cookie
+            Cookies.set("username", email) // ✅ Lưu bằng cookie
+            Cookies.set("firstName", firstName)
+            Cookies.set("lastName", lastName)
+            Cookies.set("phone", phone)
             window.location.href = "/login"
       } else {
         setError(res.message || "Đăng ký thất bại")
@@ -119,12 +125,14 @@ export default function RegisterPage() {
                   <Label htmlFor="firstName">Họ</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input id="firstName" placeholder="Nguyễn" className="pl-10" required disabled={isLoading} />
+                    <Input id="firstName" placeholder="Nguyễn" className="pl-10" required disabled={isLoading} value={firstName}
+        onChange={(e) => setFirstName(e.target.value)} />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Tên</Label>
-                  <Input id="lastName" placeholder="Văn A" required disabled={isLoading} />
+                  <Input id="lastName" placeholder="Văn A" required disabled={isLoading} value={lastName}
+      onChange={(e) => setLastName(e.target.value)} />
                 </div>
               </div>
 
@@ -148,7 +156,8 @@ export default function RegisterPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="phone">Số điện thoại</Label>
-                <Input id="phone" type="tel" placeholder="0912345678" required disabled={isLoading} />
+                <Input id="phone" type="tel" placeholder="0912345678" required disabled={isLoading} value={phone}
+    onChange={(e) => setPhone(e.target.value)} />
               </div>
 
               <div className="space-y-2">

@@ -98,10 +98,13 @@
       if (storedUsername) setUsername(storedUsername)
       fetchMoreRooms()
     }, [])
-  const handleLogout = () => {
-    Cookies.remove("username") // ✅ Xoá cookie
-    window.location.reload()  
-  }
+    const handleLogout = () => {
+      Cookies.remove("username")
+      Cookies.remove("firstName")
+      Cookies.remove("lastName")
+      Cookies.remove("phone")
+      window.location.reload()
+    }
   const activeRooms = (!hasSearched || (!locationQuery.trim() && !priceFilter))
   ? rooms
   : filteredRooms
@@ -134,6 +137,9 @@
     {username ? (
       <>
         <span className="text-sm font-medium">Xin chào, {username}</span>
+        <Link href="/profile">
+           <Button variant="outline">Tài khoản</Button>
+        </Link>
         <Button variant="outline" onClick={handleLogout}>
           Đăng xuất
         </Button>

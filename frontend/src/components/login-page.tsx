@@ -1,16 +1,17 @@
 "use client"
-import { useRouter, useSearchParams } from "next/navigation" // 👈
+import { useRouter, useSearchParams } from "next/navigation"
 import type React from "react"
 import { useState } from "react"
 import { Eye, EyeOff, Lock, Mail, MapPin } from "lucide-react"
 import Link from "next/link"
-import { login } from "@/lib/api" // 👈 THÊM import
+import { login } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import Cookies from "js-cookie"
+import axios from "axios"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,12 +27,35 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError("")
-  
+
     try {
       const res = await login(username, password)
       if (res.status === "success") {
-        Cookies.set("username", res.user.username)
-        router.push(redirectTo) // ✅ Chuyển tới trang chỉ định (VD: /post)
+        // Lưu username
+        Cookies.set("username", res.user.username, { expires: 7 })
+        console.log("Login response:", res)
+
+        // Kiểm tra nếu API trả về thông tin bổ sung
+        if (res.user.firstName && res.user.lastName && res.user.phone) {
+          Cookies.set("firstName", res.user.firstName, { expires: 7 })
+          Cookies.set("lastName", res.user.lastName, { expires: 7 })
+          Cookies.set("phone", res.user.phone, { expires: 7 })
+        } else {
+          // Gọi API /user để lấy thông tin
+          try {
+            const userRes = await axios.get("http://localhost:8000/user", {
+              params: { email: res.user.username },
+            })
+            Cookies.set("firstName", userRes.data.firstName || "", { expires: 7 })
+            Cookies.set("lastName", userRes.data.lastName || "", { expires: 7 })
+            Cookies.set("phone", userRes.data.phone || "", { expires: 7 })
+            console.log("User API response:", userRes.data)
+          } catch (err) {
+            console.error("Lỗi lấy thông tin người dùng:", err)
+          }
+        }
+
+        router.push(redirectTo)
       } else {
         setError("Tài khoản hoặc mật khẩu không đúng")
       }
