@@ -19,6 +19,12 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("")
   const [passwordStrength, setPasswordStrength] = useState(0)
   const [passwordMessage, setPasswordMessage] = useState("")
+  const [email, setEmail] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [contactNumber, setContactNumber] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [error, setError] = useState("")
 
   const checkPasswordStrength = (password: string) => {
     let strength = 0
@@ -30,19 +36,11 @@ export default function RegisterPage() {
       return
     }
 
-    // Kiểm tra độ dài
     if (password.length >= 8) strength += 25
-
-    // Kiểm tra chữ thường
     if (password.match(/[a-z]/)) strength += 25
-
-    // Kiểm tra chữ hoa
     if (password.match(/[A-Z]/)) strength += 25
-
-    // Kiểm tra số và ký tự đặc biệt
     if (password.match(/[0-9]/) && password.match(/[^a-zA-Z0-9]/)) strength += 25
 
-    // Thiết lập thông báo dựa trên độ mạnh
     if (strength <= 25) {
       message = "Yếu"
     } else if (strength <= 50) {
@@ -63,10 +61,6 @@ export default function RegisterPage() {
     checkPasswordStrength(newPassword)
   }
 
-  const [email, setEmail] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [error, setError] = useState("")
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -79,10 +73,12 @@ export default function RegisterPage() {
     }
   
     try {
-      const res = await signup(email, password)
-        if (res.status === "success") {
-            Cookies.set("username", res.user.username) // ✅ Lưu bằng cookie
-            window.location.href = "/login"
+      const fullName = `${firstName} ${lastName}`.trim()
+      
+      const res = await signup(email, password, contactNumber, fullName)
+      if (res.status === "success") {
+        Cookies.set("username", res.user.username)
+        window.location.href = "/login"
       } else {
         setError(res.message || "Đăng ký thất bại")
       }
@@ -93,7 +89,6 @@ export default function RegisterPage() {
       setIsLoading(false)
     }
   }
-  
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -119,12 +114,27 @@ export default function RegisterPage() {
                   <Label htmlFor="firstName">Họ</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input id="firstName" placeholder="Nguyễn" className="pl-10" required disabled={isLoading} />
+                    <Input 
+                      id="firstName" 
+                      placeholder="Nguyễn" 
+                      className="pl-10" 
+                      required 
+                      disabled={isLoading}
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Tên</Label>
-                  <Input id="lastName" placeholder="Văn A" required disabled={isLoading} />
+                  <Input 
+                    id="lastName" 
+                    placeholder="Văn A" 
+                    required 
+                    disabled={isLoading}
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
                 </div>
               </div>
 
@@ -133,22 +143,29 @@ export default function RegisterPage() {
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-  id="email"
-  type="email"
-  placeholder="example@gmail.com"
-  className="pl-10"
-  required
-  disabled={isLoading}
-  value={email}
-  onChange={(e) => setEmail(e.target.value)}
-/>
-
+                    id="email"
+                    type="email"
+                    placeholder="example@gmail.com"
+                    className="pl-10"
+                    required
+                    disabled={isLoading}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="phone">Số điện thoại</Label>
-                <Input id="phone" type="tel" placeholder="0912345678" required disabled={isLoading} />
+                <Input 
+                  id="phone" 
+                  type="tel" 
+                  placeholder="0912345678" 
+                  required 
+                  disabled={isLoading}
+                  value={contactNumber}
+                  onChange={(e) => setContactNumber(e.target.value)}
+                />
               </div>
 
               <div className="space-y-2">
@@ -205,15 +222,15 @@ export default function RegisterPage() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-  id="confirmPassword"
-  type={showPassword ? "text" : "password"}
-  placeholder="••••••••"
-  className="pl-10"
-  required
-  disabled={isLoading}
-  value={confirmPassword}
-  onChange={(e) => setConfirmPassword(e.target.value)}
-/>
+                    id="confirmPassword"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="pl-10"
+                    required
+                    disabled={isLoading}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
                 </div>
               </div>
 

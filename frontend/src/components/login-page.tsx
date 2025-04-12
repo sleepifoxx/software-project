@@ -1,10 +1,10 @@
 "use client"
-import { useRouter, useSearchParams } from "next/navigation" // 👈
+import { useRouter, useSearchParams } from "next/navigation"
 import type React from "react"
 import { useState } from "react"
 import { Eye, EyeOff, Lock, Mail, MapPin } from "lucide-react"
 import Link from "next/link"
-import { login } from "@/lib/api" // 👈 THÊM import
+import { login } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -18,22 +18,43 @@ export default function LoginPage() {
   const redirectTo = searchParams.get("redirect") || "/"
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [rememberMe, setRememberMe] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
-  
+
     try {
-      const res = await login(username, password)
+      const res = await login(email, password)
       if (res.status === "success") {
-        Cookies.set("username", res.user.username)
-        router.push(redirectTo) // ✅ Chuyển tới trang chỉ định (VD: /post)
+        // Set consistent cookie expiration
+        const options = rememberMe ? { expires: 30 } : { path: '/' }
+
+        // Store essential user information in cookies
+        Cookies.set("userId", res.user.id.toString(), options)
+        Cookies.set("email", res.user.email, options)
+
+        // Store additional user data from the Users model
+        if (res.user.full_name) {
+          Cookies.set("fullName", res.user.full_name, options)
+        }
+
+        if (res.user.avatar_url) {
+          Cookies.set("avatarUrl", res.user.avatar_url, options)
+        }
+
+        if (res.user.contact_number) {
+          Cookies.set("contactNumber", res.user.contact_number, options)
+        }
+
+        console.log("Login successful, redirecting to:", redirectTo)
+        router.push(redirectTo)
       } else {
-        setError("Tài khoản hoặc mật khẩu không đúng")
+        setError("Email hoặc mật khẩu không đúng")
       }
     } catch (err) {
       console.error("Đăng nhập lỗi:", err)
@@ -66,11 +87,11 @@ export default function LoginPage() {
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    type="text"
-                    placeholder="Tên đăng nhập"
+                    type="email"
+                    placeholder="Email"
                     className="pl-10"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={isLoading}
                   />
@@ -103,7 +124,11 @@ export default function LoginPage() {
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" />
+                  <Checkbox
+                    id="remember"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked === true)}
+                  />
                   <label
                     htmlFor="remember"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
