@@ -1,12 +1,13 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Cookies from "js-cookie"
-import { useRouter } from "next/navigation" // 👈 để điều hướng
+import { useRouter } from "next/navigation"
 import { ArrowLeft, Building, Check, Home, Info, MapPin, Upload, X } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { createPost, addPostImages } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -17,22 +18,70 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "sonner"
 
 export default function PostListingPage() {
   console.log("✅ Component PostListingPage được render")
   const [isLoading, setIsLoading] = useState(false)
+  const [isPageLoading, setIsPageLoading] = useState(true)
   const [images, setImages] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState("info")
   const [previewMode, setPreviewMode] = useState(false)
-  const router = useRouter() // 👈 hook điều hướng
+  const router = useRouter()
+  const [userId, setUserId] = useState<number | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
 
-  // 👉 Kiểm tra đăng nhập
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    propertyType: "",
+    price: "",
+    deposit: "1month",
+    electricPrice: "",
+    waterPrice: "",
+    internetPrice: "",
+    parkingPrice: "",
+    area: "",
+    capacity: "",
+    floor: "",
+    province: "",
+    district: "",
+    ward: "",
+    street: "",
+    addressDetail: "",
+    amenities: [] as string[]
+  })
+
+  // Check if user is logged in
   useEffect(() => {
-    const username = Cookies.get("username")
-    if (!username) {
-      router.push("/login") // chuyển hướng nếu chưa đăng nhập
+    const storedUserId = Cookies.get("userId")
+
+    if (storedUserId) {
+      setUserId(Number(storedUserId))
+      setIsPageLoading(false)
+    } else {
+      // Only redirect if there's no user ID
+      router.push("/login?redirect=/post")
     }
-  }, [])
+  }, [router])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleCheckboxChange = (id: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      amenities: checked
+        ? [...prev.amenities, id]
+        : prev.amenities.filter(item => item !== id)
+    }))
+  }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -60,17 +109,65 @@ export default function PostListingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!userId) {
+      toast.error("Vui lòng đăng nhập để đăng tin")
+      return
+    }
+
+    if (images.length < 1) {
+      toast.error("Vui lòng thêm ít nhất 1 hình ảnh")
+      return
+    }
+
     setIsLoading(true)
 
-    // Giả lập gọi API đăng tin
+    const fullAddress = `${formData.addressDetail} ${formData.street}, ${formData.ward}, ${formData.district}, ${formData.province}`
+
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      alert("Đăng tin thành công!")
-      // Chuyển hướng sau khi đăng tin thành công
-      window.location.href = "/"
+      // Create post first
+      const postData = {
+        user_id: userId,
+        title: formData.title,
+        content: formData.description,
+        price: formData.price,
+        address: fullAddress,
+        province: formData.province,
+        district: formData.district,
+        rural: formData.ward,
+        street_address: formData.street,
+        house_number: formData.addressDetail,
+        type: formData.propertyType,
+        area: Number(formData.area),
+        room_num: Number(formData.capacity) || 1,
+        deposit: formData.deposit,
+        // Include extra costs
+        electric_cost: formData.electricPrice ? Number(formData.electricPrice) : undefined,
+        water_cost: formData.waterPrice ? Number(formData.waterPrice) : undefined,
+        internet_cost: formData.internetPrice ? Number(formData.internetPrice) : undefined,
+        parking_cost: formData.parkingPrice ? Number(formData.parkingPrice) : undefined,
+        floor: formData.floor ? Number(formData.floor) : undefined,
+        amenities: formData.amenities.join(',')
+      }
+
+      const res = await createPost(postData)
+
+      if (res.status === "success") {
+        // If post is created successfully, add images
+        if (images.length > 0) {
+          await addPostImages(res.post_id, images)
+        }
+
+        toast.success("Đăng tin thành công!")
+        setTimeout(() => {
+          window.location.href = `/post/${res.post_id}`
+        }, 1500)
+      } else {
+        throw new Error(res.message || "Failed to create post")
+      }
     } catch (error) {
       console.error("Đăng tin thất bại:", error)
-      alert("Có lỗi xảy ra khi đăng tin!")
+      toast.error("Có lỗi xảy ra khi đăng tin. Vui lòng thử lại!")
     } finally {
       setIsLoading(false)
     }
@@ -90,6 +187,19 @@ export default function PostListingPage() {
     { id: "elevator", label: "Thang máy" },
     { id: "pet", label: "Cho phép thú cưng" },
   ]
+
+  if (isPageLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+            <span className="sr-only">Đang tải...</span>
+          </div>
+          <p className="mt-4">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -118,7 +228,7 @@ export default function PostListingPage() {
 
       <main className="flex-1 container py-6">
         {previewMode ? (
-          <PreviewListing />
+          <PreviewListing data={formData} images={images} />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
@@ -147,7 +257,7 @@ export default function PostListingPage() {
                       </TabsTrigger>
                     </TabsList>
 
-                    <form onSubmit={handleSubmit}>
+                    <form ref={formRef} onSubmit={handleSubmit}>
                       <TabsContent value="info" className="space-y-4 mt-4">
                         <div className="space-y-2">
                           <Label htmlFor="title">
@@ -155,9 +265,12 @@ export default function PostListingPage() {
                           </Label>
                           <Input
                             id="title"
+                            name="title"
                             placeholder="VD: Phòng trọ cao cấp quận 1, đầy đủ nội thất"
                             required
                             disabled={isLoading}
+                            value={formData.title}
+                            onChange={handleInputChange}
                           />
                         </div>
 
@@ -167,10 +280,13 @@ export default function PostListingPage() {
                           </Label>
                           <Textarea
                             id="description"
+                            name="description"
                             placeholder="Mô tả chi tiết về phòng trọ, vị trí, tiện ích xung quanh..."
                             className="min-h-[150px]"
                             required
                             disabled={isLoading}
+                            value={formData.description}
+                            onChange={handleInputChange}
                           />
                         </div>
 
@@ -179,7 +295,12 @@ export default function PostListingPage() {
                             <Label htmlFor="propertyType">
                               Loại hình <span className="text-red-500">*</span>
                             </Label>
-                            <Select required disabled={isLoading}>
+                            <Select
+                              required
+                              disabled={isLoading}
+                              value={formData.propertyType}
+                              onValueChange={(value) => handleSelectChange("propertyType", value)}
+                            >
                               <SelectTrigger id="propertyType">
                                 <SelectValue placeholder="Chọn loại hình" />
                               </SelectTrigger>
@@ -196,13 +317,26 @@ export default function PostListingPage() {
                             <Label htmlFor="price">
                               Giá thuê (VNĐ/tháng) <span className="text-red-500">*</span>
                             </Label>
-                            <Input id="price" type="number" placeholder="VD: 3000000" required disabled={isLoading} />
+                            <Input
+                              id="price"
+                              name="price"
+                              type="number"
+                              placeholder="VD: 3000000"
+                              required
+                              disabled={isLoading}
+                              value={formData.price}
+                              onChange={handleInputChange}
+                            />
                           </div>
                         </div>
 
                         <div className="space-y-2">
                           <Label>Đặt cọc</Label>
-                          <RadioGroup defaultValue="1month" className="flex flex-wrap gap-4">
+                          <RadioGroup
+                            value={formData.deposit}
+                            onValueChange={(value) => handleSelectChange("deposit", value)}
+                            className="flex flex-wrap gap-4"
+                          >
                             <div className="flex items-center space-x-2">
                               <RadioGroupItem value="1month" id="deposit-1" />
                               <Label htmlFor="deposit-1">1 tháng</Label>
@@ -222,28 +356,6 @@ export default function PostListingPage() {
                           </RadioGroup>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label>Các chi phí khác</Label>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="electricPrice">Tiền điện (VNĐ/kWh)</Label>
-                              <Input id="electricPrice" type="number" placeholder="VD: 3500" disabled={isLoading} />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="waterPrice">Tiền nước (VNĐ/m³)</Label>
-                              <Input id="waterPrice" type="number" placeholder="VD: 15000" disabled={isLoading} />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="internetPrice">Tiền internet (VNĐ/tháng)</Label>
-                              <Input id="internetPrice" type="number" placeholder="VD: 200000" disabled={isLoading} />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="parkingPrice">Tiền giữ xe (VNĐ/tháng)</Label>
-                              <Input id="parkingPrice" type="number" placeholder="VD: 100000" disabled={isLoading} />
-                            </div>
-                          </div>
-                        </div>
-
                         <div className="flex justify-end">
                           <Button type="button" onClick={() => setActiveTab("details")}>
                             Tiếp theo
@@ -257,15 +369,40 @@ export default function PostListingPage() {
                             <Label htmlFor="area">
                               Diện tích (m²) <span className="text-red-500">*</span>
                             </Label>
-                            <Input id="area" type="number" placeholder="VD: 25" required disabled={isLoading} />
+                            <Input
+                              id="area"
+                              name="area"
+                              type="number"
+                              placeholder="VD: 25"
+                              required
+                              disabled={isLoading}
+                              value={formData.area}
+                              onChange={handleInputChange}
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="capacity">Sức chứa (người)</Label>
-                            <Input id="capacity" type="number" placeholder="VD: 2" disabled={isLoading} />
+                            <Input
+                              id="capacity"
+                              name="capacity"
+                              type="number"
+                              placeholder="VD: 2"
+                              disabled={isLoading}
+                              value={formData.capacity}
+                              onChange={handleInputChange}
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="floor">Tầng</Label>
-                            <Input id="floor" type="number" placeholder="VD: 3" disabled={isLoading} />
+                            <Input
+                              id="floor"
+                              name="floor"
+                              type="number"
+                              placeholder="VD: 3"
+                              disabled={isLoading}
+                              value={formData.floor}
+                              onChange={handleInputChange}
+                            />
                           </div>
                         </div>
 
@@ -274,7 +411,11 @@ export default function PostListingPage() {
                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                             {amenities.map((amenity) => (
                               <div key={amenity.id} className="flex items-center space-x-2">
-                                <Checkbox id={amenity.id} />
+                                <Checkbox
+                                  id={amenity.id}
+                                  checked={formData.amenities.includes(amenity.id)}
+                                  onCheckedChange={(checked) => handleCheckboxChange(amenity.id, checked as boolean)}
+                                />
                                 <Label htmlFor={amenity.id} className="text-sm">
                                   {amenity.label}
                                 </Label>
@@ -293,7 +434,12 @@ export default function PostListingPage() {
                                     <Label htmlFor="province">
                                       Tỉnh/Thành phố <span className="text-red-500">*</span>
                                     </Label>
-                                    <Select required disabled={isLoading}>
+                                    <Select
+                                      required
+                                      disabled={isLoading}
+                                      value={formData.province}
+                                      onValueChange={(value) => handleSelectChange("province", value)}
+                                    >
                                       <SelectTrigger id="province">
                                         <SelectValue placeholder="Chọn tỉnh/thành phố" />
                                       </SelectTrigger>
@@ -309,7 +455,12 @@ export default function PostListingPage() {
                                     <Label htmlFor="district">
                                       Quận/Huyện <span className="text-red-500">*</span>
                                     </Label>
-                                    <Select required disabled={isLoading}>
+                                    <Select
+                                      required
+                                      disabled={isLoading}
+                                      value={formData.district}
+                                      onValueChange={(value) => handleSelectChange("district", value)}
+                                    >
                                       <SelectTrigger id="district">
                                         <SelectValue placeholder="Chọn quận/huyện" />
                                       </SelectTrigger>
@@ -327,7 +478,12 @@ export default function PostListingPage() {
                                     <Label htmlFor="ward">
                                       Phường/Xã <span className="text-red-500">*</span>
                                     </Label>
-                                    <Select required disabled={isLoading}>
+                                    <Select
+                                      required
+                                      disabled={isLoading}
+                                      value={formData.ward}
+                                      onValueChange={(value) => handleSelectChange("ward", value)}
+                                    >
                                       <SelectTrigger id="ward">
                                         <SelectValue placeholder="Chọn phường/xã" />
                                       </SelectTrigger>
@@ -343,15 +499,26 @@ export default function PostListingPage() {
                                     <Label htmlFor="street">
                                       Đường/Phố <span className="text-red-500">*</span>
                                     </Label>
-                                    <Input id="street" placeholder="VD: Nguyễn Huệ" required disabled={isLoading} />
+                                    <Input
+                                      id="street"
+                                      name="street"
+                                      placeholder="VD: Nguyễn Huệ"
+                                      required
+                                      disabled={isLoading}
+                                      value={formData.street}
+                                      onChange={handleInputChange}
+                                    />
                                   </div>
                                 </div>
                                 <div className="space-y-2">
                                   <Label htmlFor="addressDetail">Số nhà, tên tòa nhà, lối vào</Label>
                                   <Input
                                     id="addressDetail"
+                                    name="addressDetail"
                                     placeholder="VD: Số 123, Tòa nhà ABC, ngõ 456"
                                     disabled={isLoading}
+                                    value={formData.addressDetail}
+                                    onChange={handleInputChange}
                                   />
                                 </div>
                               </div>
@@ -494,22 +661,28 @@ export default function PostListingPage() {
 }
 
 // Component xem trước tin đăng
-function PreviewListing() {
+function PreviewListing({ data, images }: { data: any, images: string[] }) {
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader className="pb-0">
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-2xl">Phòng trọ cao cấp quận 1, đầy đủ nội thất</CardTitle>
+              <CardTitle className="text-2xl">{data.title || "Phòng trọ cao cấp quận 1, đầy đủ nội thất"}</CardTitle>
               <CardDescription className="flex items-center mt-2">
                 <MapPin className="h-4 w-4 mr-1" />
-                Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh
+                {data.street ?
+                  `${data.street}, ${data.ward}, ${data.district}, ${data.province}` :
+                  "Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh"}
               </CardDescription>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-primary">3.000.000đ/tháng</p>
-              <p className="text-sm text-muted-foreground">Đặt cọc: 1 tháng</p>
+              <p className="text-2xl font-bold text-primary">{data.price ? `${Number(data.price).toLocaleString('vi-VN')}đ/tháng` : "3.000.000đ/tháng"}</p>
+              <p className="text-sm text-muted-foreground">Đặt cọc: {
+                data.deposit === "1month" ? "1 tháng" :
+                  data.deposit === "2month" ? "2 tháng" :
+                    data.deposit === "3month" ? "3 tháng" : "Thỏa thuận"
+              }</p>
             </div>
           </div>
         </CardHeader>
@@ -517,12 +690,28 @@ function PreviewListing() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-                <Building className="h-12 w-12 text-muted-foreground" />
+                {images.length > 0 ? (
+                  <Image
+                    src={images[0]}
+                    alt="Preview image"
+                    width={400}
+                    height={300}
+                    className="w-full h-full object-cover rounded-md"
+                  />
+                ) : (
+                  <Building className="h-12 w-12 text-muted-foreground" />
+                )}
               </div>
               <div className="grid grid-cols-4 gap-2">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-                    <Building className="h-6 w-6 text-muted-foreground" />
+                {images.slice(1).map((image, index) => (
+                  <div key={index} className="aspect-square bg-muted rounded-lg flex items-center justify-center">
+                    <Image
+                      src={image}
+                      alt={`Preview image ${index + 2}`}
+                      width={100}
+                      height={100}
+                      className="w-full h-full object-cover rounded-md"
+                    />
                   </div>
                 ))}
               </div>
@@ -532,11 +721,11 @@ function PreviewListing() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="border rounded-lg p-3 space-y-1">
                   <p className="text-sm text-muted-foreground">Diện tích</p>
-                  <p className="font-medium">25 m²</p>
+                  <p className="font-medium">{data.area || "25"} m²</p>
                 </div>
                 <div className="border rounded-lg p-3 space-y-1">
                   <p className="text-sm text-muted-foreground">Sức chứa</p>
-                  <p className="font-medium">2 người</p>
+                  <p className="font-medium">{data.capacity || "2"} người</p>
                 </div>
                 <div className="border rounded-lg p-3 space-y-1">
                   <p className="text-sm text-muted-foreground">Đăng ngày</p>
@@ -556,19 +745,19 @@ function PreviewListing() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span>Tiền điện:</span>
-                      <span>3.500đ/kWh</span>
+                      <span>{data.electricPrice ? `${Number(data.electricPrice).toLocaleString('vi-VN')}đ/kWh` : "3.500đ/kWh"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Tiền nước:</span>
-                      <span>15.000đ/m³</span>
+                      <span>{data.waterPrice ? `${Number(data.waterPrice).toLocaleString('vi-VN')}đ/m³` : "15.000đ/m³"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Internet:</span>
-                      <span>200.000đ/tháng</span>
+                      <span>{data.internetPrice ? `${Number(data.internetPrice).toLocaleString('vi-VN')}đ/tháng` : "200.000đ/tháng"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Giữ xe:</span>
-                      <span>100.000đ/tháng</span>
+                      <span>{data.parkingPrice ? `${Number(data.parkingPrice).toLocaleString('vi-VN')}đ/tháng` : "100.000đ/tháng"}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -577,7 +766,7 @@ function PreviewListing() {
               <div className="space-y-2">
                 <h3 className="font-medium">Tiện ích</h3>
                 <div className="flex flex-wrap gap-2">
-                  {["Wifi", "Điều hòa", "Tủ lạnh", "Máy giặt", "Chỗ để xe", "Nhà bếp"].map((item) => (
+                  {data.amenities.length > 0 ? data.amenities.map((item) => (
                     <div
                       key={item}
                       className="bg-primary/10 text-primary text-xs rounded-full px-2 py-1 flex items-center"
@@ -585,7 +774,17 @@ function PreviewListing() {
                       <Check className="h-3 w-3 mr-1" />
                       {item}
                     </div>
-                  ))}
+                  )) : (
+                    ["Wifi", "Điều hòa", "Tủ lạnh", "Máy giặt", "Chỗ để xe", "Nhà bếp"].map((item) => (
+                      <div
+                        key={item}
+                        className="bg-primary/10 text-primary text-xs rounded-full px-2 py-1 flex items-center"
+                      >
+                        <Check className="h-3 w-3 mr-1" />
+                        {item}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -594,16 +793,7 @@ function PreviewListing() {
           <div className="mt-6 space-y-4">
             <h3 className="font-medium text-lg">Mô tả chi tiết</h3>
             <div className="text-sm space-y-2">
-              <p>Phòng trọ cao cấp mới xây, đầy đủ nội thất, vị trí trung tâm quận 1, thuận tiện di chuyển.</p>
-              <p>
-                Phòng rộng 25m², có cửa sổ thoáng mát, ban công rộng rãi. Đầy đủ tiện nghi: điều hòa, tủ lạnh, máy giặt,
-                bếp từ, tủ quần áo, giường, bàn làm việc.
-              </p>
-              <p>
-                Khu vực an ninh 24/7, có chỗ để xe rộng rãi, thang máy hiện đại. Gần các tiện ích: siêu thị, trường học,
-                bệnh viện, công viên.
-              </p>
-              <p>Phù hợp với sinh viên, người đi làm. Ưu tiên người sạch sẽ, ý thức tốt.</p>
+              <p>{data.description || "Phòng trọ cao cấp mới xây, đầy đủ nội thất, vị trí trung tâm quận 1, thuận tiện di chuyển."}</p>
             </div>
 
             <h3 className="font-medium text-lg">Liên hệ</h3>

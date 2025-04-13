@@ -187,7 +187,7 @@ async def create_post(
     price: int,
     room_num: int,
     type: str,
-    deposit: str,  # Changed to str to match model
+    deposit: str,
     electricity_fee: int,
     water_fee: int,
     internet_fee: int,
@@ -608,10 +608,10 @@ async def get_user_favourites(user_id: int, db: AsyncSession = Depends(get_db)):
     Lấy danh sách bài đăng yêu thích của người dùng.
     """
     # Join Favourites with Posts to get full post information
-    query = select(Posts).join(Favourites, Posts.id == Favourites.post_id).where(Favourites.user_id == user_id)
+    query = select(Posts.id).where(Favourites.user_id == user_id)
     result = await db.execute(query)
-    posts = result.scalars().all()
-    return {"status": "success", "favourites": posts}
+    posts_id = result.scalars().first()
+    return {"status": "success", "favourites": posts_id}
 
 @app.delete("/remove-favourite", tags=["Yêu thích"])
 async def remove_favourite(user_id: int, post_id: int, db: AsyncSession = Depends(get_db)):

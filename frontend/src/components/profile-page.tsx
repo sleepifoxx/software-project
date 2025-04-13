@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Mail, Phone, User, MapPin, Calendar } from "lucide-react"
+import { Mail, Phone, User, MapPin, Calendar, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -54,6 +54,7 @@ export default function ProfilePage() {
         setUser(userInfo)
         setFormData({
           full_name: userInfo.full_name || "",
+          email: userInfo.email || "",
           contact_number: userInfo.contact_number || "",
           address: userInfo.address || "",
           gender: userInfo.gender || "",
@@ -304,6 +305,14 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
+
+          <div className="mt-6 pt-4 border-t border-border">
+            <Link href="/">
+              <Button variant="outline" className="w-full flex items-center justify-center">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại trang chủ
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

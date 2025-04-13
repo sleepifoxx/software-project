@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
-import { getPosts, getPostImages, searchPosts, addToHistory, getUserFavorites, addToFavorites, removeFavorite } from "@/lib/api"
-import { Search, MapPin, Phone, Mail, Star, Filter, Heart, Share, ArrowRight } from "lucide-react"
+import { getPosts, getPostImages, addToHistory, getUserFavorites, addToFavorites, removeFavorite } from "@/lib/api"
+import { Search, MapPin, Phone, Mail, Star, Heart, ArrowRight, Check, X, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,8 +12,6 @@ import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import Image from "next/image"
 import Cookies from "js-cookie"
-import { toast } from "sonner"
-
 
 type Post = {
   id: number
@@ -25,9 +23,7 @@ type Post = {
   area?: number
 }
 
-
 type Room = Post
-
 
 export default function RentalWebsite() {
   const [locationQuery, setLocationQuery] = useState("")
@@ -40,6 +36,11 @@ export default function RentalWebsite() {
   const [userId, setUserId] = useState<number | null>(null)
   const [rooms, setRooms] = useState<Room[]>([])
   const [favorites, setFavorites] = useState<number[]>([])
+  const [activeNotification, setActiveNotification] = useState<{
+    id: number;
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   // Load user favorites
   const loadFavorites = async () => {
@@ -65,55 +66,47 @@ export default function RentalWebsite() {
           return { ...post, image }
         })
       )
-      // ✅ Gộp bài mới vào cuối danh sách hiện tại
       setRooms((prev) => [...prev, ...postsWithImages])
-
-      // ✅ Tăng offset dựa theo số lượng thực tế
       setOffset((prev) => prev + res.posts.length)
 
       if (res.posts.length < 8) {
-        setHasMore(false) // Hết dữ liệu
+        setHasMore(false)
       }
     }
   }
 
-  const handleSearch = async () => {
-    const trimmedLocation = locationQuery.trim()
+  const handleSearch = () => {
+    const trimmedLocation = locationQuery.trim();
 
-    // Nếu không nhập gì ➜ quay lại trạng thái ban đầu
-    if (!trimmedLocation && !priceFilter) {
-      setFilteredRooms([])
-      setHasSearched(false)
-      return
+    let searchQuery = '';
+
+    if (trimmedLocation) {
+      searchQuery += `location=${encodeURIComponent(trimmedLocation)}`;
     }
 
-    try {
-      const res = await searchPosts(trimmedLocation, priceFilter)
-      if (res.status === "success") {
-        const postsWithImages = await Promise.all(
-          res.posts.map(async (post: Post) => {
-            const imgRes = await getPostImages(post.id)
-            const image = imgRes.images?.[0]?.image_url || ""
-            return { ...post, image }
-          })
-        )
-        setFilteredRooms(postsWithImages)
-        setHasSearched(true)
-      }
-    } catch (err) {
-      console.error("Lỗi tìm kiếm:", err)
-      setFilteredRooms([])
-      setHasSearched(true)
+    if (priceFilter) {
+      searchQuery += `${searchQuery ? '&' : ''}price=${encodeURIComponent(priceFilter)}`;
     }
-  }
+
+    if (searchQuery) {
+      window.location.href = `/search?${searchQuery}`;
+    } else {
+      window.location.href = '/search';
+    }
+  };
 
   const handleToggleFavorite = async (postId: number) => {
     if (!userId) {
-      toast({
-        title: "Yêu cầu đăng nhập",
-        description: "Vui lòng đăng nhập để thêm vào danh sách yêu thích",
-        variant: "destructive"
+      setActiveNotification({
+        id: postId,
+        type: "error",
+        message: "Vui lòng đăng nhập để thêm vào danh sách yêu thích"
       });
+
+      // Hide notification after 3 seconds
+      setTimeout(() => {
+        setActiveNotification(null);
+      }, 3000);
       return;
     }
 
@@ -121,25 +114,37 @@ export default function RentalWebsite() {
       if (favorites.includes(postId)) {
         await removeFavorite(userId, postId);
         setFavorites(prev => prev.filter(id => id !== postId));
-        toast({
-          title: "Đã xóa khỏi yêu thích",
-          description: "Bạn đã xóa phòng trọ khỏi danh sách yêu thích",
+        setActiveNotification({
+          id: postId,
+          type: "success",
+          message: "Đã xóa khỏi danh sách yêu thích"
         });
       } else {
         await addToFavorites(userId, postId);
         setFavorites(prev => [...prev, postId]);
-        toast({
-          title: "Đã thêm vào yêu thích",
-          description: "Bạn đã thêm phòng trọ vào danh sách yêu thích",
+        setActiveNotification({
+          id: postId,
+          type: "success",
+          message: "Đã thêm vào danh sách yêu thích"
         });
       }
+
+      // Hide notification after 3 seconds
+      setTimeout(() => {
+        setActiveNotification(null);
+      }, 3000);
     } catch (err) {
       console.error("Error toggling favorite:", err);
-      toast({
-        title: "Lỗi",
-        description: "Không thể thực hiện. Vui lòng thử lại sau.",
-        variant: "destructive"
+      setActiveNotification({
+        id: postId,
+        type: "error",
+        message: "Không thể thực hiện. Vui lòng thử lại sau."
       });
+
+      // Hide notification after 3 seconds
+      setTimeout(() => {
+        setActiveNotification(null);
+      }, 3000);
     }
   };
 
@@ -204,7 +209,7 @@ export default function RentalWebsite() {
             <Link href="#" className="text-sm font-medium hover:text-primary">
               Trang chủ
             </Link>
-            <Link href="#" className="text-sm font-medium hover:text-primary">
+            <Link href="/search" className="text-sm font-medium hover:text-primary">
               Tìm phòng
             </Link>
             <Link href="#" className="text-sm font-medium hover:text-primary">
@@ -247,18 +252,12 @@ export default function RentalWebsite() {
       </header>
 
       <main className="flex-1">
-        {/* Hero section với ảnh nền và tiêu đề */}
         <section className="relative h-[500px] w-full overflow-hidden">
-          {/* Overlay */}
           <div className="absolute inset-0 bg-black/40 z-10" />
-
-          {/* Background image */}
           <div
             className="absolute inset-0 bg-cover bg-center z-0"
             style={{ backgroundImage: "url('/image.jpg')" }}
           />
-
-          {/* Nội dung chữ */}
           <div className="relative z-20 flex flex-col items-center justify-center h-full px-4 text-white text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg">
               Tìm phòng trọ phù hợp với bạn
@@ -269,7 +268,6 @@ export default function RentalWebsite() {
           </div>
         </section>
 
-        {/* Form tìm kiếm – TÁCH RIÊNG để tránh bị cắt nội dung */}
         <div className="relative z-30 -mt-20 mb-12 px-4 w-full flex justify-center">
           <div className="w-full max-w-4xl bg-white rounded-lg shadow-lg p-6">
             <Tabs defaultValue="rent">
@@ -311,7 +309,7 @@ export default function RentalWebsite() {
                     </SelectContent>
                   </Select>
                   <Button className="h-10" onClick={handleSearch}>
-                    <Search className="mr-2 h-4 w-4" /> Tìm kiếm
+                    <Search className="mr-2 h-4 w-4" /> Tới trang tìm kiếm
                   </Button>
                 </div>
 
@@ -330,7 +328,7 @@ export default function RentalWebsite() {
                   <Link
                     href="/post"
                     onClick={(e) => {
-                      if (!Cookies.get("username")) {
+                      if (!Cookies.get("userId")) {
                         e.preventDefault();
                         window.location.href = `/login?redirect=/post`;
                       }
@@ -347,73 +345,75 @@ export default function RentalWebsite() {
         <section className="max-w-7xl mx-auto px-4 py-12 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold tracking-tight">Phòng trọ nổi bật</h2>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Filter className="mr-2 h-4 w-4" /> Lọc
-              </Button>
-              <Select>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sắp xếp theo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Mới nhất</SelectItem>
-                  <SelectItem value="price-asc">Giá tăng dần</SelectItem>
-                  <SelectItem value="price-desc">Giá giảm dần</SelectItem>
-                  <SelectItem value="area">Diện tích</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 items-stretch">
             {
               (!hasSearched || (!locationQuery.trim() && !priceFilter)) ? (
                 rooms.map((room, index) => (
-                  <Card key={`room-${room.id}-${index}`} className="overflow-hidden group h-full flex flex-col">
+                  <Card key={`room-${room.id}-${index}`} className="overflow-hidden group h-full flex flex-col border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
                     <div className="relative">
                       <img
                         src={room.image}
                         alt={`Phòng trọ ${room.title}`}
-                        className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+                        className="w-full h-56 object-cover transition-transform group-hover:scale-105"
                       />
-                      <div className="absolute top-2 right-2 flex gap-2">
+                      <div className="absolute top-3 right-3 flex items-center">
+                        {activeNotification && activeNotification.id === room.id && (
+                          <div className={`mr-2 py-1 px-2 text-xs rounded-md flex items-center ${activeNotification.type === "success"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                            }`}>
+                            {activeNotification.type === "success" ? (
+                              <Check className="h-3 w-3 mr-1" />
+                            ) : (
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                            )}
+                            {activeNotification.message}
+                          </div>
+                        )}
                         <Button
                           size="icon"
-                          variant={favorites.includes(room.id) ? "default" : "secondary"}
-                          className="h-8 w-8 rounded-full"
+                          variant={favorites.includes(room.id) ? "default" : "outline"}
+                          className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm shadow-md"
                           onClick={() => handleToggleFavorite(room.id)}
                         >
-                          <Heart className={`h-4 w-4 ${favorites.includes(room.id) ? "fill-current" : ""}`} />
+                          <Heart className={`h-4 w-4 ${favorites.includes(room.id) ? "fill-primary text-primary" : "text-gray-700"}`} />
                         </Button>
                       </div>
-                      <Badge className="absolute bottom-2 left-2">Mới</Badge>
+                      <Badge className="absolute bottom-3 left-3 bg-primary/90 backdrop-blur-sm">Mới</Badge>
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent h-16"></div>
                     </div>
 
                     <CardHeader className="p-4">
-                      <CardTitle className="text-lg">{room.title}</CardTitle>
-                      <CardDescription className="flex items-center">
-                        <MapPin className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
-                        {room.address}
+                      <CardTitle className="text-lg font-semibold line-clamp-1">{room.title}</CardTitle>
+                      <CardDescription className="flex items-center text-xs mt-1">
+                        <MapPin className="h-3 w-3 mr-1 shrink-0" />
+                        <span className="line-clamp-1">{room.address}</span>
                       </CardDescription>
                     </CardHeader>
 
-                    <CardContent className="p-4 pt-0 space-y-2">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-primary">{room.price}</span>
-                        <span className="text-sm text-muted-foreground">{room.area ?? "20"}m²</span>
+                    <CardContent className="p-4 pt-0 space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col">
+                          <span className="text-xs text-muted-foreground">Giá thuê</span>
+                          <span className="font-medium text-primary text-lg">{room.price}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs text-muted-foreground">Diện tích</span>
+                          <span className="font-medium">{room.area ?? "20"}m²</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-primary text-primary" />
-                        <Star className="h-4 w-4 fill-primary text-primary" />
-                        <Star className="h-4 w-4 fill-primary text-primary" />
-                        <Star className="h-4 w-4 fill-primary text-primary" />
-                        <Star className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground ml-1">(12 đánh giá)</span>
+
+                      <div className="mt-2">
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {room.content?.substring(0, 100) || "Phòng trọ với đầy đủ tiện nghi, môi trường sống an ninh và thân thiện..."}
+                        </p>
                       </div>
                     </CardContent>
 
-                    <CardFooter className="p-4 pt-0 mt-auto">
-                      <Button variant="outline" className="w-full" onClick={() => handleViewDetails(room.id)}>
+                    <CardFooter className="p-4 pt-1 mt-auto">
+                      <Button className="w-full bg-gradient-to-r from-primary to-primary/90" onClick={() => handleViewDetails(room.id)}>
                         Xem chi tiết
                       </Button>
                     </CardFooter>
@@ -422,51 +422,69 @@ export default function RentalWebsite() {
               ) : (
                 filteredRooms.length > 0 ? (
                   filteredRooms.map((room, index) => (
-                    <Card key={`filtered-room-${room.id}-${index}`} className="overflow-hidden group h-full flex flex-col">
+                    <Card key={`filtered-room-${room.id}-${index}`} className="overflow-hidden group h-full flex flex-col border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
                       <div className="relative">
                         <img
                           src={room.image}
                           alt={`Phòng trọ ${room.title}`}
-                          className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+                          className="w-full h-56 object-cover transition-transform group-hover:scale-105"
                         />
-                        <div className="absolute top-2 right-2 flex gap-2">
+                        <div className="absolute top-3 right-3 flex items-center">
+                          {activeNotification && activeNotification.id === room.id && (
+                            <div className={`mr-2 py-1 px-2 text-xs rounded-md flex items-center ${activeNotification.type === "success"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                              }`}>
+                              {activeNotification.type === "success" ? (
+                                <Check className="h-3 w-3 mr-1" />
+                              ) : (
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                              )}
+                              {activeNotification.message}
+                            </div>
+                          )}
                           <Button
                             size="icon"
-                            variant={favorites.includes(room.id) ? "default" : "secondary"}
-                            className="h-8 w-8 rounded-full"
+                            variant={favorites.includes(room.id) ? "default" : "outline"}
+                            className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm shadow-md"
                             onClick={() => handleToggleFavorite(room.id)}
                           >
-                            <Heart className={`h-4 w-4 ${favorites.includes(room.id) ? "fill-current" : ""}`} />
+                            <Heart className={`h-4 w-4 ${favorites.includes(room.id) ? "fill-primary text-primary" : "text-gray-700"}`} />
                           </Button>
                         </div>
-                        <Badge className="absolute bottom-2 left-2">Mới</Badge>
+                        <Badge className="absolute bottom-3 left-3 bg-primary/90 backdrop-blur-sm">Mới</Badge>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent h-16"></div>
                       </div>
 
                       <CardHeader className="p-4">
-                        <CardTitle className="text-lg">{room.title}</CardTitle>
-                        <CardDescription className="flex items-center">
-                          <MapPin className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
-                          {room.address}
+                        <CardTitle className="text-lg font-semibold line-clamp-1">{room.title}</CardTitle>
+                        <CardDescription className="flex items-center text-xs mt-1">
+                          <MapPin className="h-3 w-3 mr-1 shrink-0" />
+                          <span className="line-clamp-1">{room.address}</span>
                         </CardDescription>
                       </CardHeader>
 
-                      <CardContent className="p-4 pt-0 space-y-2">
-                        <div className="flex justify-between">
-                          <span className="font-medium text-primary">{room.price}</span>
-                          <span className="text-sm text-muted-foreground">{room.area ?? "20"}m²</span>
+                      <CardContent className="p-4 pt-0 space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground">Giá thuê</span>
+                            <span className="font-medium text-primary text-lg">{room.price}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground">Diện tích</span>
+                            <span className="font-medium">{room.area ?? "20"}m²</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Star className="h-4 w-4 fill-primary text-primary" />
-                          <Star className="h-4 w-4 fill-primary text-primary" />
-                          <Star className="h-4 w-4 fill-primary text-primary" />
-                          <Star className="h-4 w-4 fill-primary text-primary" />
-                          <Star className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground ml-1">(12 đánh giá)</span>
+
+                        <div className="mt-2">
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {room.content?.substring(0, 100) || "Phòng trọ với đầy đủ tiện nghi, môi trường sống an ninh và thân thiện..."}
+                          </p>
                         </div>
                       </CardContent>
 
-                      <CardFooter className="p-4 pt-0 mt-auto">
-                        <Button variant="outline" className="w-full" onClick={() => handleViewDetails(room.id)}>
+                      <CardFooter className="p-4 pt-1 mt-auto">
+                        <Button className="w-full bg-gradient-to-r from-primary to-primary/90" onClick={() => handleViewDetails(room.id)}>
                           Xem chi tiết
                         </Button>
                       </CardFooter>
@@ -493,7 +511,6 @@ export default function RentalWebsite() {
           <div className="container mx-auto px-4 space-y-6">
             <h2 className="text-2xl font-bold text-center">Tại sao chọn NhàTrọ?</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Item 1 */}
               <div className="bg-white rounded-lg shadow-md p-6 text-center">
                 <div className="flex justify-center items-center h-12 w-12 mx-auto bg-primary/10 rounded-full mb-4">
                   <Search className="h-6 w-6 text-primary" />
@@ -504,7 +521,6 @@ export default function RentalWebsite() {
                 </p>
               </div>
 
-              {/* Item 2 */}
               <div className="bg-white rounded-lg shadow-md p-6 text-center">
                 <div className="flex justify-center items-center h-12 w-12 mx-auto bg-primary/10 rounded-full mb-4">
                   <Star className="h-6 w-6 text-primary" />
@@ -515,7 +531,6 @@ export default function RentalWebsite() {
                 </p>
               </div>
 
-              {/* Item 3 */}
               <div className="bg-white rounded-lg shadow-md p-6 text-center">
                 <div className="flex justify-center items-center h-12 w-12 mx-auto bg-primary/10 rounded-full mb-4">
                   <Phone className="h-6 w-6 text-primary" />
@@ -531,7 +546,6 @@ export default function RentalWebsite() {
 
         <section className="bg-white py-12">
           <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            {/* Nội dung bên trái */}
             <div className="space-y-5">
               <h2 className="text-3xl font-bold tracking-tight">
                 Đăng tin cho thuê phòng trọ
@@ -581,10 +595,10 @@ export default function RentalWebsite() {
 
             <div className="relative w-full h-[300px] md:h-[400px]">
               <Image
-                src="/image2.jpg" // đảm bảo ảnh nằm trong thư mục public
+                src="/image2.jpg"
                 alt="Đăng tin cho thuê"
                 fill
-                className="object-contain bg-transparent" // không thêm bo góc, bóng
+                className="object-contain bg-transparent"
               />
             </div>
           </div>
