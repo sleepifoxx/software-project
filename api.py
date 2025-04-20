@@ -13,17 +13,28 @@ from models.postImages import PostImages
 from models.history import History
 from models.convinience import Convinience
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Form
+from pydantic import BaseModel
+from typing import List
+from fastapi import FastAPI, File, UploadFile, Form
+from typing import List
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.encoders import jsonable_encoder
 
 
 app = FastAPI(title="Nhatro.vn API", description="API for Nhatro.vn")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],  # dùng chính xác domain frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+class ImageInput(BaseModel):
+    post_id: int
+    image_urls: List[str]
 # ----- USER ENDPOINTS -----
 @app.get("/login", tags=["Tài khoản"])
 async def login(email: str, password: str, db: AsyncSession = Depends(get_db)):
@@ -135,18 +146,19 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
 
 # ----- POST ENDPOINTS -----
 @app.get("/get-list-of-posts", tags=["Bài đăng"])
-async def get_list_of_posts(limit: int, db: AsyncSession = Depends(get_db)):
+async def get_list_of_posts(limit: int, offset: int = 0, db: AsyncSession = Depends(get_db)):
     """
-    Truyền vào một số limit để lấy danh sách bài viết theo giới hạn.
-    Nếu limit <= 0, trả về thông báo lỗi.
-    Nếu tìm thấy bài viết, trả về số các bài viết đó.
-    Nếu không tìm thấy, trả về thông báo lỗi.
+    Truyền vào limit và offset để phân trang danh sách bài viết.
     """
     if limit <= 0:
         return {"status": "fail", "message": "Limit must be greater than 0"}
-    result = await(db.execute(select(Posts).order_by(desc(Posts.id)).limit(limit)))
+    
+    result = await db.execute(
+        select(Posts).order_by(desc(Posts.id)).offset(offset).limit(limit)
+    )
     posts = result.scalars().all()
     return {"status": "success", "posts": posts}
+
 
 @app.get("/get-posts-by-user", tags=["Bài đăng"])
 async def get_posts_by_user(user_id: int, db: AsyncSession = Depends(get_db)):
@@ -162,6 +174,14 @@ async def get_posts_by_user(user_id: int, db: AsyncSession = Depends(get_db)):
     else:
         return {"status": "fail", "message": "No posts found for this user"}
     
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import desc
+from fastapi.encoders import jsonable_encoder
+from database import get_db
+from models.posts import Posts
+
 @app.get("/get-post-by-id", tags=["Bài đăng"])
 async def get_post_by_id(post_id: int, db: AsyncSession = Depends(get_db)):
     """
@@ -172,32 +192,36 @@ async def get_post_by_id(post_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Posts).where(Posts.id == post_id))
     post = result.scalars().first()
     if post:
-        # Increment view count
-        post.views += 1
-        await db.commit()
-        return {"status": "success", "post": post}
+        return {
+            "status": "success",
+            "post": jsonable_encoder(post)  # CHUYỂN VỀ DẠNG JSON
+        }
     else:
-        return {"status": "fail", "message": "Post not found"}
+        return {
+            "status": "fail",
+            "message": "Post not found"
+        }
+
 
 @app.post("/create-post", tags=["Bài đăng"])
 async def create_post(
-    user_id: int,
-    title: str,
-    description: str,
-    price: int,
-    room_num: int,
-    type: str,
-    deposit: str,
-    electricity_fee: int,
-    water_fee: int,
-    internet_fee: int,
-    vehicle_fee: int,
-    province: str,
-    district: str,
-    rural: str,
-    street: str,
-    detailed_address: str,  # Required field
-    floor_num: Optional[str] = None,
+    user_id: int = Form(...),
+    title: str = Form(...),
+    description: str = Form(...),
+    price: int = Form(...),
+    room_num: int = Form(...),
+    type: str = Form(...),
+    deposit: str = Form(...),
+    electricity_fee: int = Form(...),
+    water_fee: int = Form(...),
+    internet_fee: int = Form(...),
+    vehicle_fee: int = Form(...),
+    province: str = Form(...),
+    district: str = Form(...),
+    rural: str = Form(...),
+    street: str = Form(...),
+    detailed_address: str = Form(...),
+    floor_num: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -406,25 +430,30 @@ async def add_post_image(post_id: int, image_url: str, db: AsyncSession = Depend
     await db.refresh(new_image)
     return {"status": "success", "message": "Image added successfully", "image": new_image}
 
+
 @app.post("/add-post-images", tags=["Hình ảnh"])
-async def add_post_images(post_id: int, image_urls: List[str], db: AsyncSession = Depends(get_db)):
-    """
-    Thêm nhiều hình ảnh cho bài đăng cùng một lúc.
-    """
-    # Verify post exists
+async def add_post_images(
+    post_id: int = Form(...),
+    images: List[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db)
+):
     post_result = await db.execute(select(Posts).where(Posts.id == post_id))
     post = post_result.scalars().first()
     if not post:
         return {"status": "fail", "message": "Post not found"}
-    
+
     new_images = []
-    for url in image_urls:
-        new_image = PostImages(post_id=post_id, image_url=url)
+    for img in images:
+        filename = img.filename  # hoặc xử lý nội dung bằng `await img.read()`
+        new_image = PostImages(post_id=post_id, image_url=filename)
         db.add(new_image)
         new_images.append(new_image)
-    
+
     await db.commit()
-    return {"status": "success", "message": f"Added {len(new_images)} images successfully"}
+    return {
+        "status": "success",
+        "message": f"Added {len(new_images)} images successfully"
+    }
 
 @app.get("/get-post-images/{post_id}", tags=["Hình ảnh"])
 async def get_post_images(post_id: int, db: AsyncSession = Depends(get_db)):
@@ -573,21 +602,19 @@ async def delete_comment(comment_id: int, db: AsyncSession = Depends(get_db)):
 # ----- FAVOURITES ENDPOINTS -----
 @app.post("/add-favourite", tags=["Yêu thích"])
 async def add_favourite(user_id: int, post_id: int, db: AsyncSession = Depends(get_db)):
-    """
-    Thêm bài đăng vào danh sách yêu thích.
-    """
-    # Check if post and user exist
+    # Kiểm tra bài viết tồn tại
     post_result = await db.execute(select(Posts).where(Posts.id == post_id))
     post = post_result.scalars().first()
     if not post:
         return {"status": "fail", "message": "Post not found"}
-    
+
+    # Kiểm tra người dùng tồn tại
     user_result = await db.execute(select(Users).where(Users.id == user_id))
     user = user_result.scalars().first()
     if not user:
         return {"status": "fail", "message": "User not found"}
-    
-    # Check if already in favourites
+
+    # Nếu đã tồn tại thì vẫn trả về success để tránh lỗi phía client
     existing_fav = await db.execute(
         select(Favourites).where(
             Favourites.post_id == post_id,
@@ -595,23 +622,14 @@ async def add_favourite(user_id: int, post_id: int, db: AsyncSession = Depends(g
         )
     )
     if existing_fav.scalars().first():
-        return {"status": "fail", "message": "Post already in favourites"}
-    
+        return {"status": "success", "message": "Đã tồn tại trong danh sách yêu thích"}
+
     new_favourite = Favourites(user_id=user_id, post_id=post_id)
     db.add(new_favourite)
     await db.commit()
-    return {"status": "success", "message": "Added to favourites successfully"}
+    return {"status": "success", "message": "Đã thêm vào danh sách yêu thích"}
 
-@app.get("/get-user-favourites/{user_id}", tags=["Yêu thích"])
-async def get_user_favourites(user_id: int, db: AsyncSession = Depends(get_db)):
-    """
-    Lấy danh sách bài đăng yêu thích của người dùng.
-    """
-    # Join Favourites with Posts to get full post information
-    query = select(Posts.id).where(Favourites.user_id == user_id)
-    result = await db.execute(query)
-    posts_id = result.scalars().first()
-    return {"status": "success", "favourites": posts_id}
+
 
 @app.delete("/remove-favourite", tags=["Yêu thích"])
 async def remove_favourite(user_id: int, post_id: int, db: AsyncSession = Depends(get_db)):
@@ -835,6 +853,12 @@ async def delete_convenience(post_id: int, db: AsyncSession = Depends(get_db)):
     else:
         return {"status": "fail", "message": "Convenience information not found for this post"}
 
+@app.get("/get-user-favourites/{user_id}", tags=["Yêu thích"])
+async def get_user_favourites(user_id: int, db: AsyncSession = Depends(get_db)):
+    query = select(Favourites).where(Favourites.user_id == user_id)
+    result = await db.execute(query)
+    posts_id = result.scalars().all()
+    return {"status": "success", "favourites": posts_id}
 
 # ----- STATISTICS ENDPOINTS -----
 @app.get("/get-user-stats/{user_id}", tags=["Thống kê"])

@@ -24,13 +24,14 @@ export default function ProfilePage() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [error, setError] = useState("")
   const [isEditing, setIsEditing] = useState(false)
-  const [formData, setFormData] = useState({
-    full_name: "",
-    contact_number: "",
-    address: "",
-    gender: "",
-    birthday: "",
-  })
+ const [formData, setFormData] = useState({
+  full_name: "",
+  email: "", // thêm dòng này
+  contact_number: "",
+  address: "",
+  gender: "",
+  birthday: "",
+})
 
   // Hàm tải thông tin người dùng
   const loadUserInfo = async () => {
@@ -114,11 +115,11 @@ export default function ProfilePage() {
     }
   }
 
-  // Xử lý hủy chỉnh sửa
   const handleCancel = () => {
     if (!user) return
     setFormData({
       full_name: user.full_name || "",
+      email: user.email || "", // thêm dòng này
       contact_number: user.contact_number || "",
       address: user.address || "",
       gender: user.gender || "",
@@ -126,7 +127,7 @@ export default function ProfilePage() {
     })
     setIsEditing(false)
   }
-
+  
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
