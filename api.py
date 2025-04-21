@@ -173,9 +173,10 @@ async def get_post_by_id(post_id: int, db: AsyncSession = Depends(get_db)):
     post = result.scalars().first()
     if post:
         # Increment view count
-        post.views += 1
-        await db.commit()
+        # post.views += 1
+        # await db.commit()
         return {"status": "success", "post": post}
+
     else:
         return {"status": "fail", "message": "Post not found"}
 
