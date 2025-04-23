@@ -1,11 +1,14 @@
 import axios from "axios"
 
-export async function getPosts(limit = 8, offset = 0) {
-  const res = await fetch(`http://localhost:8000/get-list-of-posts?limit=${limit}`)
-  return await res.json()
+
+export const getPosts = async (limit: number, offset: number) => {
+  const res = await axios.get(`http://localhost:8000/get-list-of-posts?limit=${limit}&offset=${offset}`)
+  return res.data
 }
 
+
 export const getPostImages = async (postId: number) => {
+  console.log(postId)
   const res = await axios.get(`http://localhost:8000/get-post-images/${postId}`)
   return res.data
 }
@@ -71,10 +74,9 @@ export const getPostsByUser = async (userId: number) => {
   return res.data
 }
 
-export const createPost = async (postData: any) => {
-  const res = await axios.post("http://localhost:8000/create-post", null, {
-    params: postData
-  })
+export const createPost = async (formData: FormData) => {
+  const res = await axios.post("http://localhost:8000/create-post", formData)
+  
   return res.data
 }
 
@@ -103,6 +105,7 @@ export const getPostComments = async (postId: number) => {
 }
 
 export const addToFavorites = async (userId: number, postId: number) => {
+  console.log("da them vao danh sach yeu thich")
   const res = await axios.post("http://localhost:8000/add-favourite", null, {
     params: { user_id: userId, post_id: postId }
   })
@@ -136,18 +139,27 @@ export const updateUserInfo = async (userId: number, userData: any) => {
 }
 
 export const addPostImage = async (postId: number, imageUrl: string) => {
-  const res = await axios.post("http://localhost:8000/add-post-image", null, {
-    params: { post_id: postId, image_url: imageUrl }
-  })
-  return res.data
-}
+  const res = await axios.post("http://localhost:8000/add-post-image", {
+    post_id: postId,
+    image_url: imageUrl
+  });
+  return res.data;
+};
+export const addPostImages = async (postId: number, files: File[]) => {
+  const form = new FormData();
+  form.append("post_id", String(postId));
+  files.forEach((file) => {
+    form.append("images", file); // dùng cùng key cho nhiều file
+  });
 
-export const addPostImages = async (postId: number, imageUrls: string[]) => {
-  const res = await axios.post("http://localhost:8000/add-post-images", null, {
-    params: { post_id: postId, image_urls: imageUrls }
-  })
-  return res.data
-}
+  const res = await fetch("http://localhost:8000/add-post-images", {
+    method: "POST",
+    body: form,
+  });
+
+  return res.json();
+};
+
 
 export const addToHistory = async (userId: number, postId: number) => {
   const res = await axios.post("http://localhost:8000/add-history", null, {

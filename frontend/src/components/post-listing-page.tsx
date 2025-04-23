@@ -24,7 +24,7 @@ export default function PostListingPage() {
   console.log("✅ Component PostListingPage được render")
   const [isLoading, setIsLoading] = useState(false)
   const [isPageLoading, setIsPageLoading] = useState(true)
-  const [images, setImages] = useState<string[]>([])
+  const [images, setImages] = useState<File[]>([])
   const [activeTab, setActiveTab] = useState("info")
   const [previewMode, setPreviewMode] = useState(false)
   const router = useRouter()
@@ -83,19 +83,25 @@ export default function PostListingPage() {
     }))
   }
 
+  const [previewImages, setPreviewImages] = useState<string[]>([])
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
 
-    const newImages: string[] = []
+    const selectedFiles = Array.from(files)
+    const newPreviews: string[] = []
 
-    Array.from(files).forEach((file) => {
+    selectedFiles.forEach((file) => {
       const reader = new FileReader()
       reader.onload = (e) => {
         if (e.target?.result) {
-          newImages.push(e.target.result as string)
-          if (newImages.length === files.length) {
-            setImages((prev) => [...prev, ...newImages])
+          newPreviews.push(e.target.result as string)
+
+          if (newPreviews.length === selectedFiles.length) {
+            // Thêm preview và file cùng lúc
+            setPreviewImages((prev) => [...prev, ...newPreviews])
+            setImages((prev) => [...prev, ...selectedFiles])
           }
         }
       }
@@ -103,13 +109,14 @@ export default function PostListingPage() {
     })
   }
 
+
   const removeImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
+    const form = new FormData()
     if (!userId) {
       toast.error("Vui lòng đăng nhập để đăng tin")
       return
@@ -119,59 +126,67 @@ export default function PostListingPage() {
       toast.error("Vui lòng thêm ít nhất 1 hình ảnh")
       return
     }
+    const price = parseInt(formData.price)
+    if (isNaN(price) || price <= 0) {
+      toast.error("Giá thuê không hợp lệ")
+      return
+    }
 
+    form.append("price", price.toString())
     setIsLoading(true)
 
-    const fullAddress = `${formData.addressDetail} ${formData.street}, ${formData.ward}, ${formData.district}, ${formData.province}`
-
     try {
-      // Create post first
-      const postData = {
-        user_id: userId,
-        title: formData.title,
-        content: formData.description,
-        price: formData.price,
-        address: fullAddress,
-        province: formData.province,
-        district: formData.district,
-        rural: formData.ward,
-        street_address: formData.street,
-        house_number: formData.addressDetail,
-        type: formData.propertyType,
-        area: Number(formData.area),
-        room_num: Number(formData.capacity) || 1,
-        deposit: formData.deposit,
-        // Include extra costs
-        electric_cost: formData.electricPrice ? Number(formData.electricPrice) : undefined,
-        water_cost: formData.waterPrice ? Number(formData.waterPrice) : undefined,
-        internet_cost: formData.internetPrice ? Number(formData.internetPrice) : undefined,
-        parking_cost: formData.parkingPrice ? Number(formData.parkingPrice) : undefined,
-        floor: formData.floor ? Number(formData.floor) : undefined,
-        amenities: formData.amenities.join(',')
+      const form = new FormData()
+      form.append("user_id", String(userId))
+      form.append("title", formData.title.trim())
+      form.append("description", formData.description.trim())
+
+      form.append("price", parseInt(formData.price.trim() || "0").toString())
+      form.append("area", parseInt(formData.area.trim() || "0").toString())
+      form.append("room_num", parseInt(formData.capacity || "1").toString())
+      form.append("electricity_fee", parseInt(formData.electricPrice || "0").toString())
+      form.append("water_fee", parseInt(formData.waterPrice || "0").toString())
+      form.append("internet_fee", parseInt(formData.internetPrice || "0").toString())
+      form.append("vehicle_fee", parseInt(formData.parkingPrice || "0").toString())
+
+      form.append("type", formData.propertyType)
+      form.append("deposit", formData.deposit)
+      form.append("province", formData.province)
+      form.append("district", formData.district)
+      form.append("rural", formData.ward)
+      form.append("street", formData.street)
+      form.append("detailed_address", formData.addressDetail)
+      form.append("floor_num", formData.floor || "")
+      for (const [key, value] of form.entries()) {
+        console.log(`${key}:`, value)
       }
+      const res = await createPost(form)
 
-      const res = await createPost(postData)
-
+      if (!formData.price || isNaN(Number(formData.price))) {
+        toast.error("Vui lòng nhập giá thuê hợp lệ")
+        setIsLoading(false)
+        return
+      }
       if (res.status === "success") {
-        // If post is created successfully, add images
         if (images.length > 0) {
-          await addPostImages(res.post_id, images)
+          await addPostImages(res.post.id, images)
         }
 
         toast.success("Đăng tin thành công!")
-        setTimeout(() => {
-          window.location.href = `/post/${res.post_id}`
-        }, 1500)
+        router.push(`/posts/${res.post.id}`)
       } else {
-        throw new Error(res.message || "Failed to create post")
+        throw new Error(res.message || "Thất bại khi tạo bài đăng")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Đăng tin thất bại:", error)
+      console.log("💥 Chi tiết lỗi:", error?.response?.data) // 👉 in ra chi tiết lỗi từ FastAPI
       toast.error("Có lỗi xảy ra khi đăng tin. Vui lòng thử lại!")
-    } finally {
+    }
+    finally {
       setIsLoading(false)
     }
   }
+
 
   const amenities = [
     { id: "wifi", label: "Wifi" },
@@ -228,7 +243,7 @@ export default function PostListingPage() {
 
       <main className="flex-1 container py-6">
         {previewMode ? (
-          <PreviewListing data={formData} images={images} />
+          <PreviewListing data={formData} images={previewImages} />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
@@ -291,10 +306,9 @@ export default function PostListingPage() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Loại hình */}
                           <div className="space-y-2">
-                            <Label htmlFor="propertyType">
-                              Loại hình <span className="text-red-500">*</span>
-                            </Label>
+                            <Label htmlFor="propertyType">Loại hình <span className="text-red-500">*</span></Label>
                             <Select
                               required
                               disabled={isLoading}
@@ -313,14 +327,14 @@ export default function PostListingPage() {
                             </Select>
                           </div>
 
+                          {/* Giá thuê */}
                           <div className="space-y-2">
-                            <Label htmlFor="price">
-                              Giá thuê (VNĐ/tháng) <span className="text-red-500">*</span>
-                            </Label>
+                            <Label htmlFor="price">Giá thuê (VNĐ/tháng) <span className="text-red-500">*</span></Label>
                             <Input
                               id="price"
                               name="price"
                               type="number"
+                              min={1000}
                               placeholder="VD: 3000000"
                               required
                               disabled={isLoading}
@@ -330,6 +344,57 @@ export default function PostListingPage() {
                           </div>
                         </div>
 
+                        {/* Chi phí hàng tháng */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="electricPrice">Tiền điện (VNĐ/kWh)</Label>
+                            <Input
+                              id="electricPrice"
+                              name="electricPrice"
+                              type="number"
+                              placeholder="VD: 3500"
+                              disabled={isLoading}
+                              value={formData.electricPrice}
+                              onChange={handleInputChange}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="waterPrice">Tiền nước (VNĐ/m³)</Label>
+                            <Input
+                              id="waterPrice"
+                              name="waterPrice"
+                              type="number"
+                              placeholder="VD: 15000"
+                              disabled={isLoading}
+                              value={formData.waterPrice}
+                              onChange={handleInputChange}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="internetPrice">Internet (VNĐ/tháng)</Label>
+                            <Input
+                              id="internetPrice"
+                              name="internetPrice"
+                              type="number"
+                              placeholder="VD: 200000"
+                              disabled={isLoading}
+                              value={formData.internetPrice}
+                              onChange={handleInputChange}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="parkingPrice">Giữ xe (VNĐ/tháng)</Label>
+                            <Input
+                              id="parkingPrice"
+                              name="parkingPrice"
+                              type="number"
+                              placeholder="VD: 100000"
+                              disabled={isLoading}
+                              value={formData.parkingPrice}
+                              onChange={handleInputChange}
+                            />
+                          </div>
+                        </div>
                         <div className="space-y-2">
                           <Label>Đặt cọc</Label>
                           <RadioGroup
@@ -568,12 +633,13 @@ export default function PostListingPage() {
                               {images.map((image, index) => (
                                 <div key={index} className="relative group">
                                   <Image
-                                    src={image || "/placeholder.svg"}
+                                    src={previewImages[index] || "/placeholder.svg"}
                                     alt={`Uploaded image ${index + 1}`}
                                     width={200}
                                     height={150}
                                     className="w-full h-24 object-cover rounded-md"
                                   />
+
                                   <button
                                     type="button"
                                     className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -766,7 +832,7 @@ function PreviewListing({ data, images }: { data: any, images: string[] }) {
               <div className="space-y-2">
                 <h3 className="font-medium">Tiện ích</h3>
                 <div className="flex flex-wrap gap-2">
-                  {data.amenities.length > 0 ? data.amenities.map((item) => (
+                  {data.amenities.length > 0 ? data.amenities.map((item: string) => (
                     <div
                       key={item}
                       className="bg-primary/10 text-primary text-xs rounded-full px-2 py-1 flex items-center"

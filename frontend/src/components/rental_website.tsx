@@ -17,8 +17,10 @@ type Post = {
   id: number
   title: string
   content: string
-  price: string
+  price: string | number
   address: string
+  district?: string
+  province?: string
   image?: string
   area?: number
 }
@@ -47,10 +49,12 @@ export default function RentalWebsite() {
     if (!userId) return;
     try {
       const res = await getUserFavorites(userId);
-      if (res.status === "success") {
-        const favoriteIds = res.favourites.map((fav: any) => fav.post_id);
-        setFavorites(favoriteIds);
-      }
+      console.log("Kết quả response full:", res);
+      const favoriteIds = res.favourites
+        .filter((fav: any) => typeof fav.post_id === "number")
+        .map((fav: any) => fav.post_id);
+      console.log("FAVOURITE POST IDs:", favoriteIds);
+      setFavorites(favoriteIds);
     } catch (err) {
       console.error("Failed to load favorites:", err);
     }
@@ -102,18 +106,18 @@ export default function RentalWebsite() {
         type: "error",
         message: "Vui lòng đăng nhập để thêm vào danh sách yêu thích"
       });
-
-      // Hide notification after 3 seconds
-      setTimeout(() => {
-        setActiveNotification(null);
-      }, 3000);
+      setTimeout(() => setActiveNotification(null), 3000);
       return;
     }
 
     try {
       if (favorites.includes(postId)) {
         await removeFavorite(userId, postId);
-        setFavorites(prev => prev.filter(id => id !== postId));
+        setFavorites(prev => {
+          const updated = prev.filter(id => id !== postId);
+          console.log("FAVORITES SAU KHI XOÁ:", updated);
+          return updated;
+        });
         setActiveNotification({
           id: postId,
           type: "success",
@@ -121,7 +125,12 @@ export default function RentalWebsite() {
         });
       } else {
         await addToFavorites(userId, postId);
-        setFavorites(prev => [...prev, postId]);
+        setFavorites(prev => {
+          const updated = [...prev, postId];
+          const unique = Array.from(new Set(updated)); // tránh trùng
+          console.log("FAVORITES SAU KHI THÊM:", unique);
+          return unique;
+        });
         setActiveNotification({
           id: postId,
           type: "success",
@@ -129,10 +138,7 @@ export default function RentalWebsite() {
         });
       }
 
-      // Hide notification after 3 seconds
-      setTimeout(() => {
-        setActiveNotification(null);
-      }, 3000);
+      setTimeout(() => setActiveNotification(null), 3000);
     } catch (err) {
       console.error("Error toggling favorite:", err);
       setActiveNotification({
@@ -140,13 +146,11 @@ export default function RentalWebsite() {
         type: "error",
         message: "Không thể thực hiện. Vui lòng thử lại sau."
       });
-
-      // Hide notification after 3 seconds
-      setTimeout(() => {
-        setActiveNotification(null);
-      }, 3000);
+      setTimeout(() => setActiveNotification(null), 3000);
     }
   };
+
+
 
   const handleViewDetails = async (postId: number) => {
     if (userId) {
@@ -156,7 +160,7 @@ export default function RentalWebsite() {
         console.error("Error adding to history:", err);
       }
     }
-    window.location.href = `/post/${postId}`;
+    window.location.href = `/room/${postId}`;
   };
 
   useEffect(() => {
@@ -178,8 +182,23 @@ export default function RentalWebsite() {
   useEffect(() => {
     if (userId) {
       loadFavorites();
+
+      // Gọi thêm API để in danh sách yêu thích
+      const fetchFavorites = async () => {
+        try {
+          const res = await getUserFavorites(userId);
+          if (res.status === "success") {
+            console.log("DANH SÁCH YÊU THÍCH KHI VỀ TRANG CHỦ:", res.favourites);
+          }
+        } catch (err) {
+          console.error("Lỗi khi in danh sách yêu thích:", err);
+        }
+      };
+
+      fetchFavorites();
     }
   }, [userId]);
+
 
   const handleLogout = () => {
     Cookies.remove("userId")
@@ -229,6 +248,9 @@ export default function RentalWebsite() {
                 <Link href="/profile">
                   <Button variant="outline">Tài khoản</Button>
                 </Link>
+                <Link href="/favorites">
+                  <Button variant="outline">Yêu thích</Button>
+                </Link>
                 <Button variant="outline" onClick={handleLogout}>
                   Đăng xuất
                 </Button>
@@ -245,6 +267,7 @@ export default function RentalWebsite() {
                     Đăng kí
                   </Button>
                 </Link>
+
               </>
             )}
           </div>
@@ -311,14 +334,6 @@ export default function RentalWebsite() {
                   <Button className="h-10" onClick={handleSearch}>
                     <Search className="mr-2 h-4 w-4" /> Tới trang tìm kiếm
                   </Button>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="cursor-pointer hover:bg-muted">Quận 1</Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-muted">Quận 2</Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-muted">Quận 3</Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-muted">Quận Bình Thạnh</Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-muted">Quận Gò Vấp</Badge>
                 </div>
               </TabsContent>
 
@@ -389,7 +404,9 @@ export default function RentalWebsite() {
                       <CardTitle className="text-lg font-semibold line-clamp-1">{room.title}</CardTitle>
                       <CardDescription className="flex items-center text-xs mt-1">
                         <MapPin className="h-3 w-3 mr-1 shrink-0" />
-                        <span className="line-clamp-1">{room.address}</span>
+                        <span className="line-clamp-1">
+                          {room.district}, {room.province}
+                        </span>
                       </CardDescription>
                     </CardHeader>
 
@@ -413,9 +430,11 @@ export default function RentalWebsite() {
                     </CardContent>
 
                     <CardFooter className="p-4 pt-1 mt-auto">
-                      <Button className="w-full bg-gradient-to-r from-primary to-primary/90" onClick={() => handleViewDetails(room.id)}>
-                        Xem chi tiết
-                      </Button>
+                      <Link href={`/room/${room.id}`} className="w-full">
+                        <Button className="w-full bg-gradient-to-r from-primary to-primary/90">
+                          Xem chi tiết
+                        </Button>
+                      </Link>
                     </CardFooter>
                   </Card>
                 ))

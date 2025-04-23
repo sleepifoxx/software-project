@@ -11,6 +11,7 @@ class Posts(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=False)
     price = Column(Integer, nullable=False)
+    area = Column(Float, nullable=False)
     room_num = Column(Integer, nullable=False)
     avg_rating = Column(Float, nullable=True)
     post_date = Column(DateTime, default=func.now())

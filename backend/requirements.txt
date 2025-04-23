@@ -1,0 +1,5 @@
+aiosqlite
+fastapi
+sqlalchemy
+uvicorn
+pysqlite3 
