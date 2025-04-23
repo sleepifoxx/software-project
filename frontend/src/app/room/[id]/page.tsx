@@ -12,5 +12,5 @@ export default function Page({ params }: Props) {
 
   if (isNaN(Number(postId))) return notFound()
 
-  return <RoomDetailPage id={postId} />  // ✅ truyền đúng tên props là "id"
+  return <RoomDetailPage id={postId} />  
 }

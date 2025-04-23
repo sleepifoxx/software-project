@@ -501,7 +501,6 @@
                               </p>
                             </div>
                           </CardContent>
-
                           <CardFooter className="p-4 pt-1 mt-auto">
                             <Button className="w-full bg-gradient-to-r from-primary to-primary/90" onClick={() => handleViewDetails(room.id)}>
                               Xem chi tiết

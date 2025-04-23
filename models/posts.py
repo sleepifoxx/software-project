@@ -27,7 +27,8 @@ class Posts(Base):
     rural = Column(String, nullable=False)
     street = Column(String, nullable=False)
     detailed_address = Column(String, nullable=False)
-
+    area = Column(Integer, nullable=False)
+    
     owner = relationship('Users', back_populates='posts')
     images = relationship('PostImages', back_populates='post', cascade='all, delete-orphan')
     comments = relationship('PostComments', back_populates='post', cascade='all, delete-orphan')

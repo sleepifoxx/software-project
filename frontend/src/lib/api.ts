@@ -6,7 +6,6 @@ export const getPosts = async (limit: number, offset: number) => {
   return res.data
 }
 
-
 export const getPostImages = async (postId: number) => {
   console.log(postId)
   const res = await axios.get(`http://localhost:8000/get-post-images/${postId}`)

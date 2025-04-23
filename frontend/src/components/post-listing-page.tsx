@@ -156,6 +156,12 @@ export default function PostListingPage() {
       form.append("street", formData.street)
       form.append("detailed_address", formData.addressDetail)
       form.append("floor_num", formData.floor || "")      
+      const area = parseInt(formData.area || "0")
+if (!area || isNaN(area)) {
+  toast.error("Vui lòng nhập diện tích hợp lệ")
+  return
+}
+form.append("area", area.toString())
       for (const [key, value] of form.entries()) {
         console.log(`${key}:`, value)
       }

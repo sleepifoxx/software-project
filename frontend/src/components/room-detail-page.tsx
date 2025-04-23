@@ -76,13 +76,13 @@ export default function RoomDetailPage({ id }: { id: string }) {
               city: post.province,
             },
             images: images,
-            area: post.room_num,
+            area: post.area,
             capacity: 2, // giả định
             floor: post.floor_num,
             type: "Phòng trọ",
             status: "Còn trống",
             publishedDate: post.post_date.split("T")[0],
-            expiredDate: "2025-05-20", // bạn có thể sửa phần này
+            expiredDate: "2025-05-20", //
             amenities: [],
             utilities: {
               electric: post.electricity_fee,

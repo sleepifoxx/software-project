@@ -220,9 +220,11 @@ async def create_post(
     district: str = Form(...),
     rural: str = Form(...),
     street: str = Form(...),
+    area:int=Form(...),
     detailed_address: str = Form(...),
     floor_num: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
+    
 ):
     """
     Tạo một bài đăng mới với thông tin cơ bản.
@@ -250,7 +252,8 @@ async def create_post(
         district=district,
         rural=rural,
         street=street,
-        detailed_address=detailed_address
+        detailed_address=detailed_address,
+        area=area,
     )
     db.add(new_post)
     await db.commit()
