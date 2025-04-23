@@ -12,6 +12,7 @@
     import Link from "next/link"
     import Image from "next/image"
     import Cookies from "js-cookie"
+    import { districtMap, provinceMap } from "@/lib/locations"
 
     type Post = {
       id: number
@@ -405,7 +406,8 @@
                           <CardDescription className="flex items-center text-xs mt-1">
   <MapPin className="h-3 w-3 mr-1 shrink-0" />
   <span className="line-clamp-1">
-    {room.district}, {room.province}
+    {(districtMap[room.district ?? ""] || room.district)},{' '}
+    {(provinceMap[room.province ?? ""] || room.province)}
   </span>
 </CardDescription>
                         </CardHeader>

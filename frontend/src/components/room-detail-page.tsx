@@ -43,6 +43,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import axios from "axios"
+import { provinceMap, districtMap } from "@/lib/locations"
 
 export default function RoomDetailPage({ id }: { id: string }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -54,19 +55,33 @@ export default function RoomDetailPage({ id }: { id: string }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Lấy dữ liệu bài viết
         const res = await axios.get(`http://localhost:8000/get-post-by-id?post_id=${id}`)
-  
         if (res.data.status === "success") {
           const post = res.data.post
   
-          // Lấy hình ảnh từ API riêng
           const imageRes = await axios.get(`http://localhost:8000/get-post-images/${id}`)
           const images = imageRes.data.status === "success"
             ? imageRes.data.images.map((img: any) => img.image_url)
             : []
   
-          // Tạo đối tượng roomData hoàn chỉnh
+          // 👉 GỌI API TIỆN ÍCH
+          const convenienceRes = await axios.get(`http://localhost:8000/get-post-convenience/${id}`)
+          const convenience = convenienceRes.data.status === "success" ? convenienceRes.data.convenience : {}
+  
+          const amenities: string[] = []
+          if (convenience.wifi) amenities.push("Wi-Fi")
+          if (convenience.air_conditioner) amenities.push("Điều hòa")
+          if (convenience.fridge) amenities.push("Tủ lạnh")
+          if (convenience.washing_machine) amenities.push("Máy giặt")
+          if (convenience.parking_lot) amenities.push("Chỗ để xe")
+          if (convenience.security) amenities.push("An ninh")
+          if (convenience.kitchen) amenities.push("Bếp")
+          if (convenience.private_bathroom) amenities.push("WC riêng")
+          if (convenience.furniture) amenities.push("Nội thất")
+          if (convenience.bacony) amenities.push("Ban công")
+          if (convenience.elevator) amenities.push("Thang máy")
+          if (convenience.pet_allowed) amenities.push("Thú cưng được phép")
+  
           const processedPost = {
             ...post,
             address: {
@@ -77,13 +92,13 @@ export default function RoomDetailPage({ id }: { id: string }) {
             },
             images: images,
             area: post.area,
-            capacity: 2, // giả định
+            capacity: 2,
             floor: post.floor_num,
             type: "Phòng trọ",
             status: "Còn trống",
             publishedDate: post.post_date.split("T")[0],
-            expiredDate: "2025-05-20", //
-            amenities: [],
+            expiredDate: "2025-05-20",
+            amenities: amenities,
             utilities: {
               electric: post.electricity_fee,
               water: post.water_fee,
@@ -116,6 +131,7 @@ export default function RoomDetailPage({ id }: { id: string }) {
   
     fetchData()
   }, [id])
+  
   
   const nextImage = () => {
     if (!roomData) return
@@ -257,7 +273,8 @@ export default function RoomDetailPage({ id }: { id: string }) {
       </div>
     )
   }
-
+  const province = provinceMap[roomData.address.city] || roomData.address.city
+  const district = districtMap[roomData.address.district] || roomData.address.district
   return (
     <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -371,12 +388,7 @@ export default function RoomDetailPage({ id }: { id: string }) {
                 <h1 className="text-2xl font-bold">{roomData.title}</h1>
                 <p className="text-muted-foreground flex items-center mt-1">
   <MapPin className="h-4 w-4 mr-1" />
-  {[
-    roomData.address.street,
-    roomData.address.ward,
-    roomData.address.district,
-    roomData.address.city,
-  ]
+  {[roomData.address.street, roomData.address.ward, district, province]
     .filter((part) => part && part.trim() !== "" && part !== "Không")
     .join(", ")}
 </p>
@@ -640,35 +652,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
                           <p className="text-xs text-muted-foreground mt-1">
                             {`${roomData.address.street}, ${roomData.address.ward}, ${roomData.address.district}, ${roomData.address.city}`}
                           </p>
-                        </div>
-                      </div>
-                      <div className="mt-4 space-y-2">
-                        <h3 className="font-medium">Địa điểm lân cận</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className="bg-primary/10 rounded-full p-1">
-                              <Check className="h-4 w-4 text-primary" />
-                            </div>
-                            <span>Siêu thị (200m)</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="bg-primary/10 rounded-full p-1">
-                              <Check className="h-4 w-4 text-primary" />
-                            </div>
-                            <span>Trường học (500m)</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="bg-primary/10 rounded-full p-1">
-                              <Check className="h-4 w-4 text-primary" />
-                            </div>
-                            <span>Bệnh viện (1km)</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="bg-primary/10 rounded-full p-1">
-                              <Check className="h-4 w-4 text-primary" />
-                            </div>
-                            <span>Công viên (300m)</span>
-                          </div>
                         </div>
                       </div>
                     </TabsContent>

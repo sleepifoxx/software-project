@@ -180,3 +180,29 @@ export const getPostsWithFilters = async (filters: any) => {
   })
   return res.data
 }
+
+export const addConvenience = async (
+  postId: number,
+  conveniences: {
+    wifi?: boolean,
+    air_conditioner?: boolean,
+    fridge?: boolean,
+    washing_machine?: boolean,
+    parking_lot?: boolean,
+    security?: boolean,
+    kitchen?: boolean,
+    private_bathroom?: boolean,
+    furniture?: boolean,
+    bacony?: boolean,
+    elevator?: boolean,
+    pet_allowed?: boolean
+  }
+) => {
+  const res = await axios.post("http://localhost:8000/add-convenience", null, {
+    params: {
+      post_id: postId,
+      ...conveniences
+    }
+  })
+  return res.data
+}

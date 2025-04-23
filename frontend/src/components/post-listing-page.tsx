@@ -19,6 +19,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
+import { addConvenience } from "@/lib/api"
 
 export default function PostListingPage() {
   console.log("✅ Component PostListingPage được render")
@@ -30,7 +31,37 @@ export default function PostListingPage() {
   const router = useRouter()
   const [userId, setUserId] = useState<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
-
+  const districtsByProvince: { [key: string]: { label: string; value: string }[] } = {
+    hcm: [
+      { label: "Quận 1", value: "q1" },
+      { label: "Quận 3", value: "q3" },
+      { label: "Quận 4", value: "q4" },
+      { label: "Quận 5", value: "q5" },
+      { label: "Quận 10", value: "q10" },
+      { label: "Quận 11", value: "q11" },
+      { label: "Quận Phú Nhuận", value: "phu_nhuan" },
+      { label: "Quận Tân Bình", value: "tan_binh" },
+      { label: "Quận Bình Thạnh", value: "binh_thanh" },
+      { label: "Quận Gò Vấp", value: "go_vap" },
+      { label: "Quận Tân Phú", value: "tan_phu" },
+      { label: "Quận 6", value: "q6" },
+      { label: "Quận 8", value: "q8" }
+    ],
+    hn: [
+      { label: "Ba Đình", value: "ba_dinh" },
+      { label: "Hoàn Kiếm", value: "hoan_kiem" },
+      { label: "Tây Hồ", value: "tay_ho" },
+      { label: "Long Biên", value: "long_bien" },
+      { label: "Cầu Giấy", value: "cau_giay" },
+      { label: "Đống Đa", value: "dong_da" },
+      { label: "Hai Bà Trưng", value: "hai_ba_trung" },
+      { label: "Hoàng Mai", value: "hoang_mai" },
+      { label: "Thanh Xuân", value: "thanh_xuan" },
+      { label: "Hà Đông", value: "ha_dong" },
+      { label: "Nam Từ Liêm", value: "nam_tu_liem" },
+      { label: "Bắc Từ Liêm", value: "bac_tu_liem" }
+    ]
+  }    
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -166,22 +197,38 @@ form.append("area", area.toString())
         console.log(`${key}:`, value)
       }
       const res = await createPost(form)
-      
-      if (!formData.price || isNaN(Number(formData.price))) {
-        toast.error("Vui lòng nhập giá thuê hợp lệ")
-        setIsLoading(false)
-        return
-      }
-      if (res.status === "success") {
-        if (images.length > 0) {
-          await addPostImages(res.post.id, images)
-        }
-  
-        toast.success("Đăng tin thành công!")
-        router.push(`/posts/${res.post.id}`)
-      } else {
-        throw new Error(res.message || "Thất bại khi tạo bài đăng")
-      }
+
+if (!formData.price || isNaN(Number(formData.price))) {
+  toast.error("Vui lòng nhập giá thuê hợp lệ")
+  setIsLoading(false)
+  return
+}
+
+if (res.status === "success") {
+  const postId = res.post.id
+
+  // Gửi ảnh nếu có
+  if (images.length > 0) {
+    await addPostImages(postId, images)
+  }
+
+  // Tạo dữ liệu tiện ích từ formData.amenities
+  const convenienceData = Object.fromEntries(
+    amenities.map((item) => [item.id, formData.amenities.includes(item.id)])
+  )
+
+  // Gửi tiện ích
+  const convenienceRes = await addConvenience(postId, convenienceData)
+  if (convenienceRes.status !== "success") {
+    toast.warning("Bài đăng đã tạo nhưng tiện ích không được lưu.")
+  }
+
+  toast.success("Đăng tin thành công!")
+  router.push(`/posts/${postId}`)
+} else {
+  throw new Error(res.message || "Thất bại khi tạo bài đăng")
+}
+
     } catch (error: any) {
       console.error("Đăng tin thất bại:", error)
       console.log("💥 Chi tiết lỗi:", error?.response?.data) // 👉 in ra chi tiết lỗi từ FastAPI
@@ -195,18 +242,18 @@ form.append("area", area.toString())
 
   const amenities = [
     { id: "wifi", label: "Wifi" },
-    { id: "ac", label: "Điều hòa" },
+    { id: "air_conditioner", label: "Điều hòa" },
     { id: "fridge", label: "Tủ lạnh" },
-    { id: "washing", label: "Máy giặt" },
-    { id: "parking", label: "Chỗ để xe" },
+    { id: "washing_machine", label: "Máy giặt" },
+    { id: "parking_lot", label: "Chỗ để xe" },
     { id: "security", label: "An ninh 24/7" },
     { id: "kitchen", label: "Nhà bếp" },
-    { id: "bathroom", label: "Nhà vệ sinh riêng" },
+    { id: "private_bathroom", label: "Nhà vệ sinh riêng" },
     { id: "furniture", label: "Nội thất" },
-    { id: "balcony", label: "Ban công" },
+    { id: "bacony", label: "Ban công" },
     { id: "elevator", label: "Thang máy" },
-    { id: "pet", label: "Cho phép thú cưng" },
-  ]
+    { id: "pet_allowed", label: "Cho phép thú cưng" }
+  ]  
 
   if (isPageLoading) {
     return (
@@ -476,124 +523,117 @@ form.append("area", area.toString())
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label>Tiện ích</Label>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                            {amenities.map((amenity) => (
-                              <div key={amenity.id} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={amenity.id}
-                                  checked={formData.amenities.includes(amenity.id)}
-                                  onCheckedChange={(checked) => handleCheckboxChange(amenity.id, checked as boolean)}
-                                />
-                                <Label htmlFor={amenity.id} className="text-sm">
-                                  {amenity.label}
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <Accordion type="single" collapsible className="w-full">
-                          <AccordionItem value="address">
-                            <AccordionTrigger>Địa chỉ chi tiết</AccordionTrigger>
-                            <AccordionContent>
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="province">
-                                      Tỉnh/Thành phố <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Select
-                                      required
-                                      disabled={isLoading}
-                                      value={formData.province}
-                                      onValueChange={(value) => handleSelectChange("province", value)}
-                                    >
-                                      <SelectTrigger id="province">
-                                        <SelectValue placeholder="Chọn tỉnh/thành phố" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="hcm">TP. Hồ Chí Minh</SelectItem>
-                                        <SelectItem value="hn">Hà Nội</SelectItem>
-                                        <SelectItem value="dn">Đà Nẵng</SelectItem>
-                                        <SelectItem value="other">Khác</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="district">
-                                      Quận/Huyện <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Select
-                                      required
-                                      disabled={isLoading}
-                                      value={formData.district}
-                                      onValueChange={(value) => handleSelectChange("district", value)}
-                                    >
-                                      <SelectTrigger id="district">
-                                        <SelectValue placeholder="Chọn quận/huyện" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="q1">Quận 1</SelectItem>
-                                        <SelectItem value="q2">Quận 2</SelectItem>
-                                        <SelectItem value="q3">Quận 3</SelectItem>
-                                        <SelectItem value="other">Khác</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
+                          <div className="space-y-2">
+                            <Label>Tiện ích</Label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                              {amenities.map((amenity) => (
+                                <div key={amenity.id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={amenity.id}
+                                    checked={formData.amenities.includes(amenity.id)}
+                                    onCheckedChange={(checked) => handleCheckboxChange(amenity.id, checked as boolean)}
+                                  />
+                                  <Label htmlFor={amenity.id} className="text-sm">
+                                    {amenity.label}
+                                  </Label>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              ))}
+                            </div>
+                          </div>
+
+                          <Accordion type="single" collapsible className="w-full">
+                            <AccordionItem value="address">
+                              <AccordionTrigger>Địa chỉ chi tiết</AccordionTrigger>
+                              <AccordionContent>
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                      <Label htmlFor="province">
+                                        Tỉnh/Thành phố <span className="text-red-500">*</span>
+                                      </Label>
+                                      <Select
+                                        required
+                                        disabled={isLoading}
+                                        value={formData.province}
+                                        onValueChange={(value) => handleSelectChange("province", value)}
+                                      >
+                                        <SelectTrigger id="province">
+                                          <SelectValue placeholder="Chọn tỉnh/thành phố" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="hcm">TP. Hồ Chí Minh</SelectItem>
+                                          <SelectItem value="hn">Hà Nội</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-2">
+  <Label htmlFor="district">
+    Quận/Huyện <span className="text-red-500">*</span>
+  </Label>
+  <Select
+    required
+    disabled={isLoading || !formData.province}
+    value={formData.district}
+    onValueChange={(value) => handleSelectChange("district", value)}
+  >
+    <SelectTrigger id="district">
+      <SelectValue placeholder="Chọn quận/huyện" />
+    </SelectTrigger>
+    <SelectContent>
+      {districtsByProvince[formData.province]?.map((district) => (
+        <SelectItem key={district.value} value={district.value}>
+          {district.label}
+        </SelectItem>
+      ))}
+      <SelectItem value="other">Khác</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
+                                  </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div className="space-y-2">
-                                    <Label htmlFor="ward">
-                                      Phường/Xã <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Select
-                                      required
-                                      disabled={isLoading}
-                                      value={formData.ward}
-                                      onValueChange={(value) => handleSelectChange("ward", value)}
-                                    >
-                                      <SelectTrigger id="ward">
-                                        <SelectValue placeholder="Chọn phường/xã" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="p1">Phường 1</SelectItem>
-                                        <SelectItem value="p2">Phường 2</SelectItem>
-                                        <SelectItem value="p3">Phường 3</SelectItem>
-                                        <SelectItem value="other">Khác</SelectItem>
-                                      </SelectContent>
-                                    </Select>
+  <Label htmlFor="ward">
+    Phường/Xã <span className="text-red-500">*</span>
+  </Label>
+  <Input
+    id="ward"
+    name="ward"
+    placeholder="Nhập tên phường/xã..."
+    required
+    disabled={isLoading}
+    value={formData.ward}
+    onChange={handleInputChange}
+  />
+</div>
+                                    <div className="space-y-2">
+                                      <Label htmlFor="street">
+                                        Đường/Phố <span className="text-red-500">*</span>
+                                      </Label>
+                                      <Input
+                                        id="street"
+                                        name="street"
+                                        placeholder="VD: Nguyễn Huệ"
+                                        required
+                                        disabled={isLoading}
+                                        value={formData.street}
+                                        onChange={handleInputChange}
+                                      />
+                                    </div>
                                   </div>
                                   <div className="space-y-2">
-                                    <Label htmlFor="street">
-                                      Đường/Phố <span className="text-red-500">*</span>
-                                    </Label>
+                                    <Label htmlFor="addressDetail">Số nhà, tên tòa nhà, lối vào</Label>
                                     <Input
-                                      id="street"
-                                      name="street"
-                                      placeholder="VD: Nguyễn Huệ"
-                                      required
+                                      id="addressDetail"
+                                      name="addressDetail"
+                                      placeholder="VD: Số 123, Tòa nhà ABC, ngõ 456"
                                       disabled={isLoading}
-                                      value={formData.street}
+                                      value={formData.addressDetail}
                                       onChange={handleInputChange}
                                     />
                                   </div>
                                 </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor="addressDetail">Số nhà, tên tòa nhà, lối vào</Label>
-                                  <Input
-                                    id="addressDetail"
-                                    name="addressDetail"
-                                    placeholder="VD: Số 123, Tòa nhà ABC, ngõ 456"
-                                    disabled={isLoading}
-                                    value={formData.addressDetail}
-                                    onChange={handleInputChange}
-                                  />
-                                </div>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
+                              </AccordionContent>
+                            </AccordionItem>
                         </Accordion>
 
                         <div className="flex justify-between">
