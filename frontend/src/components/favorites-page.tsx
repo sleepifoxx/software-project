@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowRight, Filter, Heart, MapPin, Phone, Mail, Star, Share } from "lucide-react"
+import { ArrowRight, Filter, Heart, MapPin, Phone, Mail, Star, Share, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import Cookies from "js-cookie"
 import { getUserFavorites, getPostImages, removeFavorite as removeFromFavorites } from "@/lib/api"
 import { getPostById } from "@/lib/api"
+import { ImageIcon } from "lucide-react"
 
 export default function FavoritesPage() {
   const [favoriteListings, setFavoriteListings] = useState<any[]>([])
@@ -44,7 +45,7 @@ export default function FavoritesPage() {
                 const rawImage = imgRes.images?.[0]?.image_url || ""
                 const fullImageUrl = rawImage.startsWith("http")
                   ? rawImage
-                  : `http://localhost:8000/${rawImage}`
+                  : `http://localhost:3000${rawImage}`
 
                 return {
                   ...post,
@@ -144,69 +145,23 @@ export default function FavoritesPage() {
     }, 500)
   }
 
+  const handleClearFavorites = () => {
+    // Implementation of handleClearFavorites function
+  }
+
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2 font-bold text-xl">
-            <MapPin className="h-5 w-5 text-primary" />
-            <span>NhàTrọ</span>
-          </div>
-          <nav className="hidden md:flex gap-6">
-            <Link href="/" className="text-sm font-medium hover:text-primary">
-              Trang chủ
-            </Link>
-            <Link href="/search" className="text-sm font-medium hover:text-primary">
-              Tìm phòng
-            </Link>
-            <Link href="#" className="text-sm font-medium hover:text-primary">
-              Đăng tin
-            </Link>
-            <Link href="#" className="text-sm font-medium hover:text-primary">
-              Tin tức
-            </Link>
-            <Link href="#" className="text-sm font-medium hover:text-primary">
-              Liên hệ
-            </Link>
-          </nav>
-          <div className="flex items-center gap-4">
-            {username ? (
-              <>
-                <span className="text-sm font-medium">Xin chào, {username}</span>
-                <Link href="/profile">
-                  <Button variant="outline">Tài khoản</Button>
-                </Link>
-                <Button variant="outline" onClick={() => {
-                  Cookies.remove("userId")
-                  Cookies.remove("email")
-                  Cookies.remove("fullName")
-                  Cookies.remove("avatarUrl")
-                  Cookies.remove("contactNumber")
-                  setUsername("")
-                  window.location.reload()
-                }}>
-                  Đăng xuất
-                </Button>
-              </>
-            ) : (
-              <>
-                <Link href="/login">
-                  <Button variant="outline" className="hidden md:flex">
-                    Đăng nhập
-                  </Button>
-                </Link>
-                <Link href="/register">
-                  <Button>
-                    Đăng ký
-                  </Button>
-                </Link>
-              </>
-            )}
+    <div className="container py-8">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Danh sách yêu thích</h1>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleClearFavorites}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Xóa tất cả
+            </Button>
           </div>
         </div>
-      </header>
 
-      <main className="flex-1">
         {/* Show notification if exists */}
         {notification && (
           <div className={`fixed top-20 right-4 z-50 p-4 rounded-md shadow-md ${notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -277,21 +232,33 @@ export default function FavoritesPage() {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {favoriteListings.map((item) => (
-                  <Card key={item.id} className="overflow-hidden group">
+                  <Card key={item.id} className="overflow-hidden group hover:shadow-lg transition-shadow">
                     <div className="relative">
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none"
-                        }}
-                        className="w-full h-48 object-cover transition-transform group-hover:scale-105"
-                      />
+                      <Link href={`/room/${item.id}`}>
+                        <div className="w-full h-48 bg-muted relative">
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.title}
+                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.style.display = "none"
+                                target.parentElement?.classList.add("bg-muted")
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-muted">
+                              <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                      </Link>
                       <div className="absolute top-2 right-2 flex gap-2">
                         <Button
                           size="icon"
                           variant="secondary"
-                          className="h-8 w-8 rounded-full"
+                          className="h-8 w-8 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white"
                           onClick={() => removeFavorite(item.id)}
                           disabled={removingId === item.id}
                         >
@@ -301,24 +268,30 @@ export default function FavoritesPage() {
                             <Heart className="h-4 w-4 fill-primary text-primary" />
                           )}
                         </Button>
-                        <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full">
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="h-8 w-8 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white"
+                        >
                           <Share className="h-4 w-4" />
                         </Button>
                       </div>
-                      <Badge className="absolute bottom-2 left-2">
+                      <Badge className="absolute bottom-2 left-2 bg-white/80 backdrop-blur-sm">
                         {item.status === "Đã cho thuê" ? "Đã cho thuê" : item.type}
                       </Badge>
                     </div>
                     <CardHeader className="p-4">
-                      <CardTitle className="text-lg">{item.title}</CardTitle>
+                      <Link href={`/room/${item.id}`} className="hover:text-primary transition-colors">
+                        <CardTitle className="text-lg line-clamp-2">{item.title}</CardTitle>
+                      </Link>
                       <CardDescription className="flex items-center">
                         <MapPin className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
-                        {`${item.address.district}, ${item.address.city}`}
+                        <span className="line-clamp-1">{`${item.address.district}, ${item.address.city}`}</span>
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="p-4 pt-0 space-y-2">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-primary">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-primary text-lg">
                           {(item.price / 1000000).toFixed(1)} triệu/tháng
                         </span>
                         <span className="text-sm text-muted-foreground">{item.area}m²</span>
@@ -352,7 +325,7 @@ export default function FavoritesPage() {
             </>
           )}
         </section>
-      </main>
+      </div>
 
       <footer className="bg-muted">
         <div className="container py-8 md:py-12">

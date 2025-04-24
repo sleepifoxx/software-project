@@ -22,6 +22,7 @@ import {
   User,
   Mail,
   Eye,
+  ImageIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -43,6 +44,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import axios from "axios"
+import { provinceMap, districtMap } from "@/lib/locations"
 
 export default function RoomDetailPage({ id }: { id: string }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -54,19 +56,51 @@ export default function RoomDetailPage({ id }: { id: string }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Lấy dữ liệu bài viết
         const res = await axios.get(`http://localhost:8000/get-post-by-id?post_id=${id}`)
-  
         if (res.data.status === "success") {
           const post = res.data.post
-  
-          // Lấy hình ảnh từ API riêng
+
+          // Lấy ảnh từ API
           const imageRes = await axios.get(`http://localhost:8000/get-post-images/${id}`)
-          const images = imageRes.data.status === "success"
-            ? imageRes.data.images.map((img: any) => img.image_url)
-            : []
-  
-          // Tạo đối tượng roomData hoàn chỉnh
+          console.log("Image response:", imageRes.data) // Thêm log để debug
+
+          // Xử lý ảnh
+          let images = []
+          if (imageRes.data.status === "success" && imageRes.data.images) {
+            images = imageRes.data.images.map((img: any) => {
+              // Kiểm tra và xử lý URL ảnh
+              if (img.image_url) {
+                // Nếu URL ảnh là đường dẫn tương đối, thêm domain
+                if (!img.image_url.startsWith('http')) {
+                  return `http://localhost:3000${img.image_url}`
+                }
+                return img.image_url
+              }
+              return null
+            }).filter(Boolean) // Lọc bỏ các giá trị null
+          }
+
+          console.log("Processed images:", images) // Thêm log để debug
+          setImages(images)
+
+          // 👉 GỌI API TIỆN ÍCH
+          const convenienceRes = await axios.get(`http://localhost:8000/get-post-convenience/${id}`)
+          const convenience = convenienceRes.data.status === "success" ? convenienceRes.data.convenience : {}
+
+          const amenities: string[] = []
+          if (convenience.wifi) amenities.push("Wi-Fi")
+          if (convenience.air_conditioner) amenities.push("Điều hòa")
+          if (convenience.fridge) amenities.push("Tủ lạnh")
+          if (convenience.washing_machine) amenities.push("Máy giặt")
+          if (convenience.parking_lot) amenities.push("Chỗ để xe")
+          if (convenience.security) amenities.push("An ninh")
+          if (convenience.kitchen) amenities.push("Bếp")
+          if (convenience.private_bathroom) amenities.push("WC riêng")
+          if (convenience.furniture) amenities.push("Nội thất")
+          if (convenience.bacony) amenities.push("Ban công")
+          if (convenience.elevator) amenities.push("Thang máy")
+          if (convenience.pet_allowed) amenities.push("Thú cưng được phép")
+
           const processedPost = {
             ...post,
             address: {
@@ -76,14 +110,14 @@ export default function RoomDetailPage({ id }: { id: string }) {
               city: post.province,
             },
             images: images,
-            area: post.room_num,
-            capacity: 2, // giả định
+            area: post.area,
+            capacity: 2,
             floor: post.floor_num,
             type: "Phòng trọ",
             status: "Còn trống",
             publishedDate: post.post_date.split("T")[0],
-            expiredDate: "2025-05-20", // bạn có thể sửa phần này
-            amenities: [],
+            expiredDate: "2025-05-20",
+            amenities: amenities,
             utilities: {
               electric: post.electricity_fee,
               water: post.water_fee,
@@ -102,7 +136,7 @@ export default function RoomDetailPage({ id }: { id: string }) {
             reviews: [],
             similarListings: [],
           }
-  
+
           setRoomData(processedPost)
         } else {
           console.error("Không tìm thấy bài viết")
@@ -113,10 +147,11 @@ export default function RoomDetailPage({ id }: { id: string }) {
         setIsLoading(false)
       }
     }
-  
+
     fetchData()
   }, [id])
-  
+
+
   const nextImage = () => {
     if (!roomData) return
     setCurrentImageIndex((prevIndex) => (prevIndex === roomData.images.length - 1 ? 0 : prevIndex + 1))
@@ -139,38 +174,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen">
-        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2 font-bold text-xl">
-              <MapPin className="h-5 w-5 text-primary" />
-              <span>NhàTrọ</span>
-            </div>
-            <nav className="hidden md:flex gap-6">
-              <Link href="/" className="text-sm font-medium hover:text-primary">
-                Trang chủ
-              </Link>
-              <Link href="/search" className="text-sm font-medium hover:text-primary">
-                Tìm phòng
-              </Link>
-              <Link href="#" className="text-sm font-medium hover:text-primary">
-                Đăng tin
-              </Link>
-              <Link href="#" className="text-sm font-medium hover:text-primary">
-                Tin tức
-              </Link>
-              <Link href="#" className="text-sm font-medium hover:text-primary">
-                Liên hệ
-              </Link>
-            </nav>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" className="hidden md:flex">
-                Đăng nhập
-              </Button>
-              <Button>Đăng ký</Button>
-            </div>
-          </div>
-        </header>
-
         <main className="flex-1 container py-12">
           <div className="space-y-8">
             <div className="h-[400px] bg-muted animate-pulse rounded-lg"></div>
@@ -204,38 +207,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
   if (!roomData) {
     return (
       <div className="flex flex-col min-h-screen">
-        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2 font-bold text-xl">
-              <MapPin className="h-5 w-5 text-primary" />
-              <span>NhàTrọ</span>
-            </div>
-            <nav className="hidden md:flex gap-6">
-              <Link href="/" className="text-sm font-medium hover:text-primary">
-                Trang chủ
-              </Link>
-              <Link href="/search" className="text-sm font-medium hover:text-primary">
-                Tìm phòng
-              </Link>
-              <Link href="#" className="text-sm font-medium hover:text-primary">
-                Đăng tin
-              </Link>
-              <Link href="#" className="text-sm font-medium hover:text-primary">
-                Tin tức
-              </Link>
-              <Link href="#" className="text-sm font-medium hover:text-primary">
-                Liên hệ
-              </Link>
-            </nav>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" className="hidden md:flex">
-                Đăng nhập
-              </Button>
-              <Button>Đăng ký</Button>
-            </div>
-          </div>
-        </header>
-
         <main className="flex-1 container py-12">
           <div className="flex flex-col items-center justify-center h-[400px] text-center">
             <Info className="h-12 w-12 text-muted-foreground mb-4" />
@@ -257,40 +228,10 @@ export default function RoomDetailPage({ id }: { id: string }) {
       </div>
     )
   }
-
+  const province = provinceMap[roomData.address.city] || roomData.address.city
+  const district = districtMap[roomData.address.district] || roomData.address.district
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2 font-bold text-xl">
-            <MapPin className="h-5 w-5 text-primary" />
-            <span>NhàTrọ</span>
-          </div>
-          <nav className="hidden md:flex gap-6">
-            <Link href="/" className="text-sm font-medium hover:text-primary">
-              Trang chủ
-            </Link>
-            <Link href="/search" className="text-sm font-medium hover:text-primary">
-              Tìm phòng
-            </Link>
-            <Link href="#" className="text-sm font-medium hover:text-primary">
-              Đăng tin
-            </Link>
-            <Link href="#" className="text-sm font-medium hover:text-primary">
-              Tin tức
-            </Link>
-            <Link href="#" className="text-sm font-medium hover:text-primary">
-              Liên hệ
-            </Link>
-          </nav>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" className="hidden md:flex">
-              Đăng nhập
-            </Button>
-            <Button>Đăng ký</Button>
-          </div>
-        </div>
-      </header>
 
       <main className="flex-1">
         {/* Breadcrumb */}
@@ -315,11 +256,17 @@ export default function RoomDetailPage({ id }: { id: string }) {
             <div className="space-y-4">
               <div className="relative">
                 <div className="aspect-video relative overflow-hidden rounded-lg">
-                <img
-    src={images[currentImageIndex] || "/placeholder.svg"}
-    alt={`Ảnh ${currentImageIndex + 1}`}
-    className="w-full h-full object-cover"
-  />
+                  {images[currentImageIndex] ? (
+                    <img
+                      src={images[currentImageIndex]}
+                      alt={`Ảnh ${currentImageIndex + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -337,28 +284,32 @@ export default function RoomDetailPage({ id }: { id: string }) {
                     <ChevronRight className="h-6 w-6" />
                   </Button>
                   <div className="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                  {currentImageIndex + 1} / {images.length}
+                    {currentImageIndex + 1} / {images.length}
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-5 gap-2">
-  {images.map((image: string, index: number) => (
-    <div
-      key={index}
-      className={`aspect-video overflow-hidden rounded-lg cursor-pointer ${
-        index === currentImageIndex ? "ring-2 ring-primary" : ""
-      }`}
-      onClick={() => setCurrentImageIndex(index)}
-    >
-      <img
-        src={image || "/placeholder.svg"}
-        alt={`Ảnh ${index + 1}`}
-        className="w-full h-full object-cover"
-      />
-    </div>
-  ))}
-</div>
+                {images.map((image: string, index: number) => (
+                  <div
+                    key={index}
+                    className={`aspect-video overflow-hidden rounded-lg cursor-pointer ${index === currentImageIndex ? "ring-2 ring-primary" : ""}`}
+                    onClick={() => setCurrentImageIndex(index)}
+                  >
+                    {image ? (
+                      <img
+                        src={image}
+                        alt={`Ảnh ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Thông tin cơ bản */}
@@ -370,16 +321,11 @@ export default function RoomDetailPage({ id }: { id: string }) {
                 </div>
                 <h1 className="text-2xl font-bold">{roomData.title}</h1>
                 <p className="text-muted-foreground flex items-center mt-1">
-  <MapPin className="h-4 w-4 mr-1" />
-  {[
-    roomData.address.street,
-    roomData.address.ward,
-    roomData.address.district,
-    roomData.address.city,
-  ]
-    .filter((part) => part && part.trim() !== "" && part !== "Không")
-    .join(", ")}
-</p>
+                  <MapPin className="h-4 w-4 mr-1" />
+                  {[roomData.address.street, roomData.address.ward, district, province]
+                    .filter((part) => part && part.trim() !== "" && part !== "Không")
+                    .join(", ")}
+                </p>
               </div>
 
               <div className="flex flex-col md:flex-row justify-between gap-4 bg-muted p-4 rounded-lg">
@@ -642,35 +588,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
                           </p>
                         </div>
                       </div>
-                      <div className="mt-4 space-y-2">
-                        <h3 className="font-medium">Địa điểm lân cận</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className="bg-primary/10 rounded-full p-1">
-                              <Check className="h-4 w-4 text-primary" />
-                            </div>
-                            <span>Siêu thị (200m)</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="bg-primary/10 rounded-full p-1">
-                              <Check className="h-4 w-4 text-primary" />
-                            </div>
-                            <span>Trường học (500m)</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="bg-primary/10 rounded-full p-1">
-                              <Check className="h-4 w-4 text-primary" />
-                            </div>
-                            <span>Bệnh viện (1km)</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="bg-primary/10 rounded-full p-1">
-                              <Check className="h-4 w-4 text-primary" />
-                            </div>
-                            <span>Công viên (300m)</span>
-                          </div>
-                        </div>
-                      </div>
                     </TabsContent>
                   </Tabs>
                 </CardContent>
@@ -752,43 +669,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
                 </CardContent>
               </Card>
 
-              {/* Đặt lịch xem phòng */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Đặt lịch xem phòng</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="visit-date">Ngày xem</Label>
-                    <Input id="visit-date" type="date" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="visit-time">Thời gian</Label>
-                    <Select>
-                      <SelectTrigger id="visit-time">
-                        <SelectValue placeholder="Chọn thời gian" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="morning">Buổi sáng (8:00 - 11:00)</SelectItem>
-                        <SelectItem value="afternoon">Buổi chiều (13:00 - 17:00)</SelectItem>
-                        <SelectItem value="evening">Buổi tối (18:00 - 20:00)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="visit-note">Ghi chú</Label>
-                    <Textarea
-                      id="visit-note"
-                      placeholder="Thông tin thêm về lịch xem phòng..."
-                      className="min-h-[80px]"
-                    />
-                  </div>
-                  <Button className="w-full">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Đặt lịch xem
-                  </Button>
-                </CardContent>
-              </Card>
 
               {/* Báo cáo */}
               <div className="text-center">

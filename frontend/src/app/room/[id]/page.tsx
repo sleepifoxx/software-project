@@ -1,16 +1,13 @@
-import RoomDetailPage from "@/components/room-detail-page"
-import { notFound } from "next/navigation"
+import RoomDetailPage from '@/components/room-detail-page'
+import Header from '@/components/header'
 
-type Props = {
-  params: {
-    id: string
-  }
-}
-
-export default function Page({ params }: Props) {
-  const postId = params.id
-
-  if (isNaN(Number(postId))) return notFound()
-
-  return <RoomDetailPage id={postId} />  // ✅ truyền đúng tên props là "id"
+export default function RoomDetail({ params }: { params: { id: string } }) {
+  return (
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <main className="flex-1">
+        <RoomDetailPage id={params.id} />
+      </main>
+    </div>
+  )
 }

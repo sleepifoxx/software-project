@@ -12,6 +12,8 @@ import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import Image from "next/image"
 import Cookies from "js-cookie"
+import { districtMap, provinceMap } from "@/lib/locations"
+import { ImageIcon } from "lucide-react"
 
 type Post = {
   id: number
@@ -43,6 +45,8 @@ export default function RentalWebsite() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const [isLoading, setIsLoading] = useState(false)
+  const [posts, setPosts] = useState<Post[]>([])
 
   // Load user favorites
   const loadFavorites = async () => {
@@ -66,7 +70,7 @@ export default function RentalWebsite() {
       const postsWithImages = await Promise.all(
         res.posts.map(async (post: Post) => {
           const imgRes = await getPostImages(post.id)
-          const image = imgRes.images?.[0]?.image_url || ""
+          const image = imgRes.images?.[0]?.image_url || null
           return { ...post, image }
         })
       )
@@ -199,6 +203,42 @@ export default function RentalWebsite() {
     }
   }, [userId]);
 
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        setIsLoading(true)
+        const res = await getPosts(1, 20) // Thêm tham số page và limit
+        if (res.status === "success" && res.posts) {
+          // Lọc các bài viết trùng lặp dựa trên id
+          const uniquePosts = res.posts.reduce((acc: any[], current: any) => {
+            const x = acc.find((item: any) => item.id === current.id)
+            if (!x) {
+              return acc.concat([current])
+            } else {
+              return acc
+            }
+          }, [])
+
+          // Sắp xếp bài viết theo thời gian đăng mới nhất
+          const sortedPosts = uniquePosts.sort((a: any, b: any) => {
+            const dateA = new Date(a.post_date || a.created_at).getTime()
+            const dateB = new Date(b.post_date || b.created_at).getTime()
+            return dateB - dateA
+          })
+
+          setPosts(sortedPosts)
+        } else {
+          console.error("Không có dữ liệu bài viết hoặc định dạng không đúng:", res)
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải danh sách bài viết:", err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPosts()
+  }, [])
 
   const handleLogout = () => {
     Cookies.remove("userId")
@@ -218,61 +258,7 @@ export default function RentalWebsite() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2 font-bold text-xl">
-            <MapPin className="h-5 w-5 text-primary" />
-            <span>NhàTrọ</span>
-          </div>
-          <nav className="hidden md:flex gap-6">
-            <Link href="#" className="text-sm font-medium hover:text-primary">
-              Trang chủ
-            </Link>
-            <Link href="/search" className="text-sm font-medium hover:text-primary">
-              Tìm phòng
-            </Link>
-            <Link href="#" className="text-sm font-medium hover:text-primary">
-              Đăng tin
-            </Link>
-            <Link href="#" className="text-sm font-medium hover:text-primary">
-              Tin tức
-            </Link>
-            <Link href="#" className="text-sm font-medium hover:text-primary">
-              Liên hệ
-            </Link>
-          </nav>
-          <div className="flex items-center gap-4">
-            {username ? (
-              <>
-                <span className="text-sm font-medium">Xin chào, {username}</span>
-                <Link href="/profile">
-                  <Button variant="outline">Tài khoản</Button>
-                </Link>
-                <Link href="/favorites">
-                  <Button variant="outline">Yêu thích</Button>
-                </Link>
-                <Button variant="outline" onClick={handleLogout}>
-                  Đăng xuất
-                </Button>
-              </>
-            ) : (
-              <>
-                <Link href="/login">
-                  <Button variant="outline" className="hidden md:flex">
-                    Đăng nhập
-                  </Button>
-                </Link>
-                <Link href="/register">
-                  <Button>
-                    Đăng kí
-                  </Button>
-                </Link>
 
-              </>
-            )}
-          </div>
-        </div>
-      </header>
 
       <main className="flex-1">
         <section className="relative h-[500px] w-full overflow-hidden">
@@ -368,11 +354,17 @@ export default function RentalWebsite() {
                 rooms.map((room, index) => (
                   <Card key={`room-${room.id}-${index}`} className="overflow-hidden group h-full flex flex-col border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
                     <div className="relative">
-                      <img
-                        src={room.image}
-                        alt={`Phòng trọ ${room.title}`}
-                        className="w-full h-56 object-cover transition-transform group-hover:scale-105"
-                      />
+                      {room.image ? (
+                        <img
+                          src={room.image}
+                          alt={`Phòng trọ ${room.title}`}
+                          className="w-full h-56 object-cover transition-transform group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-56 bg-muted flex items-center justify-center">
+                          <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
                       <div className="absolute top-3 right-3 flex items-center">
                         {activeNotification && activeNotification.id === room.id && (
                           <div className={`mr-2 py-1 px-2 text-xs rounded-md flex items-center ${activeNotification.type === "success"
@@ -405,7 +397,8 @@ export default function RentalWebsite() {
                       <CardDescription className="flex items-center text-xs mt-1">
                         <MapPin className="h-3 w-3 mr-1 shrink-0" />
                         <span className="line-clamp-1">
-                          {room.district}, {room.province}
+                          {(districtMap[room.district ?? ""] || room.district)},{' '}
+                          {(provinceMap[room.province ?? ""] || room.province)}
                         </span>
                       </CardDescription>
                     </CardHeader>
@@ -443,11 +436,17 @@ export default function RentalWebsite() {
                   filteredRooms.map((room, index) => (
                     <Card key={`filtered-room-${room.id}-${index}`} className="overflow-hidden group h-full flex flex-col border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
                       <div className="relative">
-                        <img
-                          src={room.image}
-                          alt={`Phòng trọ ${room.title}`}
-                          className="w-full h-56 object-cover transition-transform group-hover:scale-105"
-                        />
+                        {room.image ? (
+                          <img
+                            src={room.image}
+                            alt={`Phòng trọ ${room.title}`}
+                            className="w-full h-56 object-cover transition-transform group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-56 bg-muted flex items-center justify-center">
+                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                        )}
                         <div className="absolute top-3 right-3 flex items-center">
                           {activeNotification && activeNotification.id === room.id && (
                             <div className={`mr-2 py-1 px-2 text-xs rounded-md flex items-center ${activeNotification.type === "success"
@@ -501,7 +500,6 @@ export default function RentalWebsite() {
                           </p>
                         </div>
                       </CardContent>
-
                       <CardFooter className="p-4 pt-1 mt-auto">
                         <Button className="w-full bg-gradient-to-r from-primary to-primary/90" onClick={() => handleViewDetails(room.id)}>
                           Xem chi tiết
@@ -679,7 +677,7 @@ export default function RentalWebsite() {
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"></path>
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"></path>
                   </svg>
                 </Button>
               </div>

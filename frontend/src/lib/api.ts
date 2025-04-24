@@ -6,7 +6,6 @@ export const getPosts = async (limit: number, offset: number) => {
   return res.data
 }
 
-
 export const getPostImages = async (postId: number) => {
   console.log(postId)
   const res = await axios.get(`http://localhost:8000/get-post-images/${postId}`)
@@ -32,7 +31,7 @@ export const login = async (email: string, password: string) => {
 }
 
 export async function searchPosts(
-  province?: string, 
+  province?: string,
   district?: string,
   rural?: string,
   min_price?: number,
@@ -43,16 +42,16 @@ export async function searchPosts(
   offset = 0
 ) {
   const res = await axios.get("http://localhost:8000/search-posts", {
-    params: { 
-      province, 
-      district, 
-      rural, 
-      min_price, 
-      max_price, 
-      type, 
-      room_num, 
-      limit, 
-      offset 
+    params: {
+      province,
+      district,
+      rural,
+      min_price,
+      max_price,
+      type,
+      room_num,
+      limit,
+      offset
     }
   })
   return res.data
@@ -76,7 +75,7 @@ export const getPostsByUser = async (userId: number) => {
 
 export const createPost = async (formData: FormData) => {
   const res = await axios.post("http://localhost:8000/create-post", formData)
-  
+
   return res.data
 }
 
@@ -145,19 +144,21 @@ export const addPostImage = async (postId: number, imageUrl: string) => {
   });
   return res.data;
 };
+
 export const addPostImages = async (postId: number, files: File[]) => {
   const form = new FormData();
   form.append("post_id", String(postId));
   files.forEach((file) => {
-    form.append("images", file); // dùng cùng key cho nhiều file
+    form.append("images", file);
   });
 
-  const res = await fetch("http://localhost:8000/add-post-images", {
-    method: "POST",
-    body: form,
+  const res = await axios.post("http://localhost:8000/add-post-images", form, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    }
   });
 
-  return res.json();
+  return res.data;
 };
 
 
@@ -180,4 +181,38 @@ export const getPostsWithFilters = async (filters: any) => {
     params: filters
   })
   return res.data
+}
+
+export const addConvenience = async (
+  postId: number,
+  conveniences: {
+    wifi?: boolean,
+    air_conditioner?: boolean,
+    fridge?: boolean,
+    washing_machine?: boolean,
+    parking_lot?: boolean,
+    security?: boolean,
+    kitchen?: boolean,
+    private_bathroom?: boolean,
+    furniture?: boolean,
+    bacony?: boolean,
+    elevator?: boolean,
+    pet_allowed?: boolean
+  }
+) => {
+  try {
+    const res = await axios.post("http://localhost:8000/add-convenience", null, {
+      params: {
+        post_id: postId,
+        ...conveniences
+      }
+    })
+    return res.data
+  } catch (error: any) {
+    console.error("Error adding convenience:", error)
+    return {
+      status: "fail",
+      message: error.response?.data?.message || "Failed to add convenience information"
+    }
+  }
 }

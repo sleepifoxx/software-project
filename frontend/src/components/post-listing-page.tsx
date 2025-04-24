@@ -19,6 +19,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
+import { addConvenience } from "@/lib/api"
 
 export default function PostListingPage() {
   console.log("✅ Component PostListingPage được render")
@@ -30,7 +31,37 @@ export default function PostListingPage() {
   const router = useRouter()
   const [userId, setUserId] = useState<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
-
+  const districtsByProvince: { [key: string]: { label: string; value: string }[] } = {
+    hcm: [
+      { label: "Quận 1", value: "q1" },
+      { label: "Quận 3", value: "q3" },
+      { label: "Quận 4", value: "q4" },
+      { label: "Quận 5", value: "q5" },
+      { label: "Quận 10", value: "q10" },
+      { label: "Quận 11", value: "q11" },
+      { label: "Quận Phú Nhuận", value: "phu_nhuan" },
+      { label: "Quận Tân Bình", value: "tan_binh" },
+      { label: "Quận Bình Thạnh", value: "binh_thanh" },
+      { label: "Quận Gò Vấp", value: "go_vap" },
+      { label: "Quận Tân Phú", value: "tan_phu" },
+      { label: "Quận 6", value: "q6" },
+      { label: "Quận 8", value: "q8" }
+    ],
+    hn: [
+      { label: "Ba Đình", value: "ba_dinh" },
+      { label: "Hoàn Kiếm", value: "hoan_kiem" },
+      { label: "Tây Hồ", value: "tay_ho" },
+      { label: "Long Biên", value: "long_bien" },
+      { label: "Cầu Giấy", value: "cau_giay" },
+      { label: "Đống Đa", value: "dong_da" },
+      { label: "Hai Bà Trưng", value: "hai_ba_trung" },
+      { label: "Hoàng Mai", value: "hoang_mai" },
+      { label: "Thanh Xuân", value: "thanh_xuan" },
+      { label: "Hà Đông", value: "ha_dong" },
+      { label: "Nam Từ Liêm", value: "nam_tu_liem" },
+      { label: "Bắc Từ Liêm", value: "bac_tu_liem" }
+    ]
+  }
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -116,7 +147,6 @@ export default function PostListingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const form = new FormData()
     if (!userId) {
       toast.error("Vui lòng đăng nhập để đăng tin")
       return
@@ -126,13 +156,13 @@ export default function PostListingPage() {
       toast.error("Vui lòng thêm ít nhất 1 hình ảnh")
       return
     }
+
     const price = parseInt(formData.price)
     if (isNaN(price) || price <= 0) {
       toast.error("Giá thuê không hợp lệ")
       return
     }
 
-    form.append("price", price.toString())
     setIsLoading(true)
 
     try {
@@ -142,7 +172,6 @@ export default function PostListingPage() {
       form.append("description", formData.description.trim())
 
       form.append("price", parseInt(formData.price.trim() || "0").toString())
-      form.append("area", parseInt(formData.area.trim() || "0").toString())
       form.append("room_num", parseInt(formData.capacity || "1").toString())
       form.append("electricity_fee", parseInt(formData.electricPrice || "0").toString())
       form.append("water_fee", parseInt(formData.waterPrice || "0").toString())
@@ -157,32 +186,59 @@ export default function PostListingPage() {
       form.append("street", formData.street)
       form.append("detailed_address", formData.addressDetail)
       form.append("floor_num", formData.floor || "")
-      for (const [key, value] of form.entries()) {
-        console.log(`${key}:`, value)
-      }
-      const res = await createPost(form)
 
-      if (!formData.price || isNaN(Number(formData.price))) {
-        toast.error("Vui lòng nhập giá thuê hợp lệ")
-        setIsLoading(false)
+      const area = parseInt(formData.area || "0")
+      if (!area || isNaN(area)) {
+        toast.error("Vui lòng nhập diện tích hợp lệ")
         return
       }
+      form.append("area", area.toString())
+
+      const res = await createPost(form)
+
       if (res.status === "success") {
+        const postId = res.post.id
+
+        // Gửi ảnh nếu có
         if (images.length > 0) {
-          await addPostImages(res.post.id, images)
+          const imageRes = await addPostImages(postId, images)
+          if (imageRes.status !== "success") {
+            toast.warning("Bài đăng đã tạo nhưng ảnh không được lưu.")
+          }
+        }
+
+        // Tạo dữ liệu tiện ích từ formData.amenities
+        const convenienceData = {
+          wifi: formData.amenities.includes("wifi"),
+          air_conditioner: formData.amenities.includes("air_conditioner"),
+          fridge: formData.amenities.includes("fridge"),
+          washing_machine: formData.amenities.includes("washing_machine"),
+          parking_lot: formData.amenities.includes("parking_lot"),
+          security: formData.amenities.includes("security"),
+          kitchen: formData.amenities.includes("kitchen"),
+          private_bathroom: formData.amenities.includes("private_bathroom"),
+          furniture: formData.amenities.includes("furniture"),
+          bacony: formData.amenities.includes("bacony"),
+          elevator: formData.amenities.includes("elevator"),
+          pet_allowed: formData.amenities.includes("pet_allowed")
+        }
+
+        // Gửi tiện ích
+        const convenienceRes = await addConvenience(postId, convenienceData)
+        if (convenienceRes.status !== "success") {
+          toast.warning("Bài đăng đã tạo nhưng tiện ích không được lưu.")
         }
 
         toast.success("Đăng tin thành công!")
-        router.push(`/posts/${res.post.id}`)
+        router.push(`/room/${postId}`)
       } else {
         throw new Error(res.message || "Thất bại khi tạo bài đăng")
       }
     } catch (error: any) {
       console.error("Đăng tin thất bại:", error)
-      console.log("💥 Chi tiết lỗi:", error?.response?.data) // 👉 in ra chi tiết lỗi từ FastAPI
+      console.log("💥 Chi tiết lỗi:", error?.response?.data)
       toast.error("Có lỗi xảy ra khi đăng tin. Vui lòng thử lại!")
-    }
-    finally {
+    } finally {
       setIsLoading(false)
     }
   }
@@ -190,17 +246,17 @@ export default function PostListingPage() {
 
   const amenities = [
     { id: "wifi", label: "Wifi" },
-    { id: "ac", label: "Điều hòa" },
+    { id: "air_conditioner", label: "Điều hòa" },
     { id: "fridge", label: "Tủ lạnh" },
-    { id: "washing", label: "Máy giặt" },
-    { id: "parking", label: "Chỗ để xe" },
+    { id: "washing_machine", label: "Máy giặt" },
+    { id: "parking_lot", label: "Chỗ để xe" },
     { id: "security", label: "An ninh 24/7" },
     { id: "kitchen", label: "Nhà bếp" },
-    { id: "bathroom", label: "Nhà vệ sinh riêng" },
+    { id: "private_bathroom", label: "Nhà vệ sinh riêng" },
     { id: "furniture", label: "Nội thất" },
-    { id: "balcony", label: "Ban công" },
+    { id: "bacony", label: "Ban công" },
     { id: "elevator", label: "Thang máy" },
-    { id: "pet", label: "Cho phép thú cưng" },
+    { id: "pet_allowed", label: "Cho phép thú cưng" }
   ]
 
   if (isPageLoading) {
@@ -511,8 +567,6 @@ export default function PostListingPage() {
                                       <SelectContent>
                                         <SelectItem value="hcm">TP. Hồ Chí Minh</SelectItem>
                                         <SelectItem value="hn">Hà Nội</SelectItem>
-                                        <SelectItem value="dn">Đà Nẵng</SelectItem>
-                                        <SelectItem value="other">Khác</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>
@@ -522,7 +576,7 @@ export default function PostListingPage() {
                                     </Label>
                                     <Select
                                       required
-                                      disabled={isLoading}
+                                      disabled={isLoading || !formData.province}
                                       value={formData.district}
                                       onValueChange={(value) => handleSelectChange("district", value)}
                                     >
@@ -530,9 +584,11 @@ export default function PostListingPage() {
                                         <SelectValue placeholder="Chọn quận/huyện" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="q1">Quận 1</SelectItem>
-                                        <SelectItem value="q2">Quận 2</SelectItem>
-                                        <SelectItem value="q3">Quận 3</SelectItem>
+                                        {districtsByProvince[formData.province]?.map((district) => (
+                                          <SelectItem key={district.value} value={district.value}>
+                                            {district.label}
+                                          </SelectItem>
+                                        ))}
                                         <SelectItem value="other">Khác</SelectItem>
                                       </SelectContent>
                                     </Select>
@@ -543,22 +599,15 @@ export default function PostListingPage() {
                                     <Label htmlFor="ward">
                                       Phường/Xã <span className="text-red-500">*</span>
                                     </Label>
-                                    <Select
+                                    <Input
+                                      id="ward"
+                                      name="ward"
+                                      placeholder="Nhập tên phường/xã..."
                                       required
                                       disabled={isLoading}
                                       value={formData.ward}
-                                      onValueChange={(value) => handleSelectChange("ward", value)}
-                                    >
-                                      <SelectTrigger id="ward">
-                                        <SelectValue placeholder="Chọn phường/xã" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="p1">Phường 1</SelectItem>
-                                        <SelectItem value="p2">Phường 2</SelectItem>
-                                        <SelectItem value="p3">Phường 3</SelectItem>
-                                        <SelectItem value="other">Khác</SelectItem>
-                                      </SelectContent>
-                                    </Select>
+                                      onChange={handleInputChange}
+                                    />
                                   </div>
                                   <div className="space-y-2">
                                     <Label htmlFor="street">
