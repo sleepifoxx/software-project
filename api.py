@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
 import uuid
 import os
+from sqlalchemy import func
 
 
 app = FastAPI(title="Nhatro.vn API", description="API for Nhatro.vn")
@@ -333,35 +334,35 @@ async def search_posts(
     rural: Optional[str] = None,
     min_price: Optional[int] = None,
     max_price: Optional[int] = None,
+    area_min: Optional[int] = None,
+    area_max: Optional[int] = None,
     type: Optional[str] = None,
     room_num: Optional[int] = None,
-    limit: int = 10,
-    offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Tìm kiếm bài đăng theo các tiêu chí.
-    """
     query = select(Posts)
-    
+
     if province:
         query = query.where(Posts.province == province)
     if district:
-        query = query.where(Posts.district == district)
+        query = query.where(func.lower(Posts.district).ilike(f"%{district.lower()}%"))
     if rural:
         query = query.where(Posts.rural == rural)
     if min_price is not None:
         query = query.where(Posts.price >= min_price)
     if max_price is not None:
         query = query.where(Posts.price <= max_price)
+    if area_min is not None:
+        query = query.where(Posts.area >= area_min)
+    if area_max is not None:
+        query = query.where(Posts.area <= area_max)
     if type:
         query = query.where(Posts.type == type)
     if room_num:
         query = query.where(Posts.room_num == room_num)
-        
-    # Add pagination
-    query = query.order_by(desc(Posts.post_date)).limit(limit).offset(offset)
-    
+
+    query = query.order_by(desc(Posts.post_date))  
+
     result = await db.execute(query)
     posts = result.scalars().all()
     return {"status": "success", "posts": posts, "count": len(posts)}

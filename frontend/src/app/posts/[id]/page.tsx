@@ -1,4 +1,4 @@
-import ListingDetailPage from "linhtinh/listing-detail-page"
+import ListingDetailPage from "@/components/listing-detail-page"
 import { notFound } from "next/navigation"
 
 type Props = {

@@ -375,10 +375,10 @@ export default function PostListingPage() {
                                 <SelectValue placeholder="Chọn loại hình" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="room">Phòng trọ</SelectItem>
-                                <SelectItem value="apartment">Căn hộ</SelectItem>
-                                <SelectItem value="house">Nhà nguyên căn</SelectItem>
-                                <SelectItem value="shared">Ở ghép</SelectItem>
+                                <SelectItem value="Phòng trọ">Phòng trọ</SelectItem>
+                                <SelectItem value="Căn hộ">Căn hộ</SelectItem>
+                                <SelectItem value="Nhà nguyên căn">Nhà nguyên căn</SelectItem>
+                                <SelectItem value="Ở ghép">Ở ghép</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>

@@ -81,6 +81,12 @@ export default function Header() {
                                     Yêu thích
                                 </Link>
                             </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+  <Link href="/my-listings" className="flex items-center gap-2">
+    <MapPin className="h-4 w-4" />
+    Quản lý bài đăng
+  </Link>
+</DropdownMenuItem>
                             <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2">
                                 <LogOut className="h-4 w-4" />
                                 Đăng xuất
