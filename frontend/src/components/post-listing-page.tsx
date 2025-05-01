@@ -20,6 +20,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import { addConvenience } from "@/lib/api"
+import Footer from "@/components/footer"
 
 export default function PostListingPage() {
   console.log("✅ Component PostListingPage được render")
@@ -375,10 +376,10 @@ export default function PostListingPage() {
                                 <SelectValue placeholder="Chọn loại hình" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="room">Phòng trọ</SelectItem>
-                                <SelectItem value="apartment">Căn hộ</SelectItem>
-                                <SelectItem value="house">Nhà nguyên căn</SelectItem>
-                                <SelectItem value="shared">Ở ghép</SelectItem>
+                                <SelectItem value="Phòng trọ">Phòng trọ</SelectItem>
+                                <SelectItem value="Căn hộ">Căn hộ</SelectItem>
+                                <SelectItem value="Nhà nguyên căn">Nhà nguyên căn</SelectItem>
+                                <SelectItem value="Ở ghép">Ở ghép</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -764,13 +765,7 @@ export default function PostListingPage() {
         )}
       </main>
 
-      <footer className="border-t py-4 bg-background">
-        <div className="container flex flex-col items-center justify-center gap-2 text-center">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} NhàTrọ. Tất cả quyền được bảo lưu.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

@@ -30,32 +30,6 @@ export const login = async (email: string, password: string) => {
   return res.data
 }
 
-export async function searchPosts(
-  province?: string,
-  district?: string,
-  rural?: string,
-  min_price?: number,
-  max_price?: number,
-  type?: string,
-  room_num?: number,
-  limit = 10,
-  offset = 0
-) {
-  const res = await axios.get("http://localhost:8000/search-posts", {
-    params: {
-      province,
-      district,
-      rural,
-      min_price,
-      max_price,
-      type,
-      room_num,
-      limit,
-      offset
-    }
-  })
-  return res.data
-}
 
 // New functions for additional endpoints
 
@@ -215,4 +189,23 @@ export const addConvenience = async (
       message: error.response?.data?.message || "Failed to add convenience information"
     }
   }
+}
+
+export const searchPosts = async (params: {
+  district?: string
+  min_price: number
+  max_price: number
+  area_min?: number
+  area_max?: number
+  type?: string
+  limit?: number
+  offset?: number 
+}) => {
+  console.log("Gọi API searchPosts với:", params)
+
+  const res = await axios.get("http://localhost:8000/search-posts", {
+    params,
+  })
+
+  return res.data
 }

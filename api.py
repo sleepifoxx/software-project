@@ -335,7 +335,7 @@ async def search_posts(
     max_price: Optional[int] = None,
     type: Optional[str] = None,
     room_num: Optional[int] = None,
-    limit: int = 10,
+    limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
@@ -368,7 +368,7 @@ async def search_posts(
 
 @app.get("/get-posts-by-filter", tags=["Bài đăng"])
 async def get_posts_by_filter(
-    limit: int = 10, 
+    limit: int = 100, 
     offset: int = 0,
     province: Optional[str] = None,
     district: Optional[str] = None, 

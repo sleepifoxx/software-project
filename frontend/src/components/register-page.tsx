@@ -1,7 +1,7 @@
 "use client"
 import Cookies from "js-cookie"
 import type React from "react"
-import { signup } from "@/lib/api" 
+import { signup } from "@/lib/api"
 import { useState } from "react"
 import { Eye, EyeOff, Facebook, Lock, Mail, MapPin, User } from "lucide-react"
 import Link from "next/link"
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
+import Footer from "@/components/footer"
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -65,16 +66,16 @@ export default function RegisterPage() {
     e.preventDefault()
     setIsLoading(true)
     setError("")
-  
+
     if (password !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp")
       setIsLoading(false)
       return
     }
-  
+
     try {
       const fullName = `${firstName} ${lastName}`.trim()
-      
+
       const res = await signup(email, password, contactNumber, fullName)
       if (res.status === "success") {
         Cookies.set("username", res.user.username)
@@ -114,11 +115,11 @@ export default function RegisterPage() {
                   <Label htmlFor="firstName">Họ</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="firstName" 
-                      placeholder="Nguyễn" 
-                      className="pl-10" 
-                      required 
+                    <Input
+                      id="firstName"
+                      placeholder="Nguyễn"
+                      className="pl-10"
+                      required
                       disabled={isLoading}
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
@@ -127,10 +128,10 @@ export default function RegisterPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Tên</Label>
-                  <Input 
-                    id="lastName" 
-                    placeholder="Văn A" 
-                    required 
+                  <Input
+                    id="lastName"
+                    placeholder="Văn A"
+                    required
                     disabled={isLoading}
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
@@ -157,11 +158,11 @@ export default function RegisterPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="phone">Số điện thoại</Label>
-                <Input 
-                  id="phone" 
-                  type="tel" 
-                  placeholder="0912345678" 
-                  required 
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="0912345678"
+                  required
                   disabled={isLoading}
                   value={contactNumber}
                   onChange={(e) => setContactNumber(e.target.value)}
@@ -275,13 +276,7 @@ export default function RegisterPage() {
         </Card>
       </main>
 
-      <footer className="border-t py-4 bg-background">
-        <div className="container flex flex-col items-center justify-center gap-2 text-center">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} NhàTrọ. Tất cả quyền được bảo lưu.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

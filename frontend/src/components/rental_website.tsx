@@ -14,6 +14,8 @@ import Image from "next/image"
 import Cookies from "js-cookie"
 import { districtMap, provinceMap } from "@/lib/locations"
 import { ImageIcon } from "lucide-react"
+import PostCard from "@/components/post-card"
+import Footer from "./footer"
 
 type Post = {
   id: number
@@ -25,6 +27,8 @@ type Post = {
   province?: string
   image?: string
   area?: number
+  status?: string
+  amenities?: string[]
 }
 
 type Room = Post
@@ -86,22 +90,36 @@ export default function RentalWebsite() {
   const handleSearch = () => {
     const trimmedLocation = locationQuery.trim();
 
-    let searchQuery = '';
+    let queryParams: string[] = []
 
     if (trimmedLocation) {
-      searchQuery += `location=${encodeURIComponent(trimmedLocation)}`;
+      queryParams.push(`district=${encodeURIComponent(trimmedLocation)}`)
     }
 
-    if (priceFilter) {
-      searchQuery += `${searchQuery ? '&' : ''}price=${encodeURIComponent(priceFilter)}`;
+    // Xử lý lọc giá
+    switch (priceFilter) {
+      case "1":
+        queryParams.push("max_price=1000000")
+        break
+      case "2":
+        queryParams.push("min_price=1000000", "max_price=2000000")
+        break
+      case "3":
+        queryParams.push("min_price=2000000", "max_price=3000000")
+        break
+      case "4":
+        queryParams.push("min_price=3000000", "max_price=5000000")
+        break
+      case "5":
+        queryParams.push("min_price=5000000", "max_price=10000000")
+        break
     }
 
-    if (searchQuery) {
-      window.location.href = `/search?${searchQuery}`;
-    } else {
-      window.location.href = '/search';
-    }
-  };
+    const searchQuery = queryParams.join("&")
+
+    window.location.href = `/search${searchQuery ? `?${searchQuery}` : ""}`
+  }
+
 
   const handleToggleFavorite = async (postId: number) => {
     if (!userId) {
@@ -179,7 +197,6 @@ export default function RentalWebsite() {
 
     if (storedFullName) setUsername(storedFullName)
     if (storedUserId) setUserId(Number(storedUserId))
-
     fetchMoreRooms()
   }, [])
 
@@ -352,160 +369,48 @@ export default function RentalWebsite() {
             {
               (!hasSearched || (!locationQuery.trim() && !priceFilter)) ? (
                 rooms.map((room, index) => (
-                  <Card key={`room-${room.id}-${index}`} className="overflow-hidden group h-full flex flex-col border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <div className="relative">
-                      {room.image ? (
-                        <img
-                          src={room.image}
-                          alt={`Phòng trọ ${room.title}`}
-                          className="w-full h-56 object-cover transition-transform group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="w-full h-56 bg-muted flex items-center justify-center">
-                          <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                      )}
-                      <div className="absolute top-3 right-3 flex items-center">
-                        {activeNotification && activeNotification.id === room.id && (
-                          <div className={`mr-2 py-1 px-2 text-xs rounded-md flex items-center ${activeNotification.type === "success"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                            }`}>
-                            {activeNotification.type === "success" ? (
-                              <Check className="h-3 w-3 mr-1" />
-                            ) : (
-                              <AlertCircle className="h-3 w-3 mr-1" />
-                            )}
-                            {activeNotification.message}
-                          </div>
-                        )}
-                        <Button
-                          size="icon"
-                          variant={favorites.includes(room.id) ? "default" : "outline"}
-                          className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm shadow-md"
-                          onClick={() => handleToggleFavorite(room.id)}
-                        >
-                          <Heart className={`h-4 w-4 ${favorites.includes(room.id) ? "fill-primary text-primary" : "text-gray-700"}`} />
-                        </Button>
-                      </div>
-                      <Badge className="absolute bottom-3 left-3 bg-primary/90 backdrop-blur-sm">Mới</Badge>
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent h-16"></div>
-                    </div>
-
-                    <CardHeader className="p-4">
-                      <CardTitle className="text-lg font-semibold line-clamp-1">{room.title}</CardTitle>
-                      <CardDescription className="flex items-center text-xs mt-1">
-                        <MapPin className="h-3 w-3 mr-1 shrink-0" />
-                        <span className="line-clamp-1">
-                          {(districtMap[room.district ?? ""] || room.district)},{' '}
-                          {(provinceMap[room.province ?? ""] || room.province)}
-                        </span>
-                      </CardDescription>
-                    </CardHeader>
-
-                    <CardContent className="p-4 pt-0 space-y-3">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex flex-col">
-                          <span className="text-xs text-muted-foreground">Giá thuê</span>
-                          <span className="font-medium text-primary text-lg">{room.price}</span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-xs text-muted-foreground">Diện tích</span>
-                          <span className="font-medium">{room.area ?? "20"}m²</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-2">
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {room.content?.substring(0, 100) || "Phòng trọ với đầy đủ tiện nghi, môi trường sống an ninh và thân thiện..."}
-                        </p>
-                      </div>
-                    </CardContent>
-
-                    <CardFooter className="p-4 pt-1 mt-auto">
-                      <Link href={`/room/${room.id}`} className="w-full">
-                        <Button className="w-full bg-gradient-to-r from-primary to-primary/90">
-                          Xem chi tiết
-                        </Button>
-                      </Link>
-                    </CardFooter>
-                  </Card>
+                  <PostCard
+                    key={`room-${room.id}-${index}`}
+                    item={{
+                      id: room.id,
+                      title: room.title,
+                      price: Number(room.price),
+                      area: room.area ?? 20,
+                      address: {
+                        district: districtMap[room.district ?? ""] || room.district || "Không rõ",
+                        city: provinceMap[room.province ?? ""] || room.province || "TP. Hồ Chí Minh"
+                      },
+                      image: room.image,
+                      status: room.status || "Còn trống",
+                      amenities: room.amenities || [],
+                      isFavorite: favorites.includes(room.id)
+                    }}
+                    onToggleFavorite={handleToggleFavorite}
+                    activeNotification={activeNotification}
+                  />
                 ))
               ) : (
                 filteredRooms.length > 0 ? (
                   filteredRooms.map((room, index) => (
-                    <Card key={`filtered-room-${room.id}-${index}`} className="overflow-hidden group h-full flex flex-col border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-                      <div className="relative">
-                        {room.image ? (
-                          <img
-                            src={room.image}
-                            alt={`Phòng trọ ${room.title}`}
-                            className="w-full h-56 object-cover transition-transform group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="w-full h-56 bg-muted flex items-center justify-center">
-                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="absolute top-3 right-3 flex items-center">
-                          {activeNotification && activeNotification.id === room.id && (
-                            <div className={`mr-2 py-1 px-2 text-xs rounded-md flex items-center ${activeNotification.type === "success"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                              }`}>
-                              {activeNotification.type === "success" ? (
-                                <Check className="h-3 w-3 mr-1" />
-                              ) : (
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                              )}
-                              {activeNotification.message}
-                            </div>
-                          )}
-                          <Button
-                            size="icon"
-                            variant={favorites.includes(room.id) ? "default" : "outline"}
-                            className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm shadow-md"
-                            onClick={() => handleToggleFavorite(room.id)}
-                          >
-                            <Heart className={`h-4 w-4 ${favorites.includes(room.id) ? "fill-primary text-primary" : "text-gray-700"}`} />
-                          </Button>
-                        </div>
-                        <Badge className="absolute bottom-3 left-3 bg-primary/90 backdrop-blur-sm">Mới</Badge>
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent h-16"></div>
-                      </div>
-
-                      <CardHeader className="p-4">
-                        <CardTitle className="text-lg font-semibold line-clamp-1">{room.title}</CardTitle>
-                        <CardDescription className="flex items-center text-xs mt-1">
-                          <MapPin className="h-3 w-3 mr-1 shrink-0" />
-                          <span className="line-clamp-1">{room.address}</span>
-                        </CardDescription>
-                      </CardHeader>
-
-                      <CardContent className="p-4 pt-0 space-y-3">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="flex flex-col">
-                            <span className="text-xs text-muted-foreground">Giá thuê</span>
-                            <span className="font-medium text-primary text-lg">{room.price}</span>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-xs text-muted-foreground">Diện tích</span>
-                            <span className="font-medium">{room.area ?? "20"}m²</span>
-                          </div>
-                        </div>
-
-                        <div className="mt-2">
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {room.content?.substring(0, 100) || "Phòng trọ với đầy đủ tiện nghi, môi trường sống an ninh và thân thiện..."}
-                          </p>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="p-4 pt-1 mt-auto">
-                        <Button className="w-full bg-gradient-to-r from-primary to-primary/90" onClick={() => handleViewDetails(room.id)}>
-                          Xem chi tiết
-                        </Button>
-                      </CardFooter>
-                    </Card>
+                    <PostCard
+                      key={`filtered-room-${room.id}-${index}`}
+                      item={{
+                        id: room.id,
+                        title: room.title,
+                        price: Number(room.price),
+                        area: room.area ?? 20,
+                        address: {
+                          district: districtMap[room.district ?? ""] || room.district || "Không rõ",
+                          city: provinceMap[room.province ?? ""] || room.province || "TP. Hồ Chí Minh"
+                        },
+                        image: room.image,
+                        status: room.status || "Còn trống",
+                        amenities: room.amenities || [],
+                        isFavorite: favorites.includes(room.id)
+                      }}
+                      onToggleFavorite={handleToggleFavorite}
+                      activeNotification={activeNotification}
+                    />
                   ))
                 ) : (
                   <div className="col-span-full text-center text-muted-foreground">
@@ -620,132 +525,9 @@ export default function RentalWebsite() {
             </div>
           </div>
         </section>
-        <section className="bg-primary text-primary-foreground py-12">
-          <div className="container text-center space-y-6">
-            <h2 className="text-2xl font-bold tracking-tight">Bạn đang tìm phòng trọ?</h2>
-            <p className="max-w-2xl mx-auto">
-              Hàng ngàn phòng trọ chất lượng đang chờ bạn khám phá. Đăng ký ngay để nhận thông báo về các phòng trọ mới
-              nhất.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
-              <Input placeholder="Email của bạn" className="bg-primary-foreground text-primary" />
-              <Button variant="secondary">Đăng ký</Button>
-            </div>
-          </div>
-        </section>
       </main>
 
-      <footer className="bg-muted">
-        <div className="container py-8 md:py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 font-bold text-xl">
-                <MapPin className="h-5 w-5 text-primary" />
-                <span>NhàTrọ</span>
-              </div>
-              <p className="text-muted-foreground">
-                Nền tảng kết nối chủ trọ và người thuê trọ uy tín, chất lượng hàng đầu Việt Nam.
-              </p>
-              <div className="flex gap-4">
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path>
-                  </svg>
-                </Button>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"></path>
-                  </svg>
-                </Button>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"></path>
-                  </svg>
-                </Button>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg mb-4">Liên kết nhanh</h3>
-              <nav className="flex flex-col space-y-2">
-                <Link href="#" className="hover:text-primary">
-                  Trang chủ
-                </Link>
-                <Link href="#" className="hover:text-primary">
-                  Tìm phòng
-                </Link>
-                <Link href="#" className="hover:text-primary">
-                  Đăng tin
-                </Link>
-                <Link href="#" className="hover:text-primary">
-                  Tin tức
-                </Link>
-                <Link href="#" className="hover:text-primary">
-                  Liên hệ
-                </Link>
-              </nav>
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg mb-4">Hỗ trợ</h3>
-              <nav className="flex flex-col space-y-2">
-                <Link href="#" className="hover:text-primary">
-                  Trung tâm hỗ trợ
-                </Link>
-                <Link href="#" className="hover:text-primary">
-                  Câu hỏi thường gặp
-                </Link>
-                <Link href="#" className="hover:text-primary">
-                  Hướng dẫn đăng tin
-                </Link>
-                <Link href="#" className="hover:text-primary">
-                  Quy chế hoạt động
-                </Link>
-                <Link href="#" className="hover:text-primary">
-                  Chính sách bảo mật
-                </Link>
-              </nav>
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg mb-4">Liên hệ</h3>
-              <div className="space-y-2">
-                <p className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  <span>123 Đường ABC, Quận 1, TP. Hồ Chí Minh</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-primary" />
-                  <span>0123 456 789</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-primary" />
-                  <span>info@nhatro.vn</span>
-                </p>
-              </div>
-            </div>
-          </div>
-          <Separator className="my-8" />
-          <div className="text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} NhàTrọ. Tất cả quyền được bảo lưu.
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }
