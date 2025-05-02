@@ -199,7 +199,7 @@ export const searchPosts = async (params: {
   area_max?: number
   type?: string
   limit?: number
-  offset?: number 
+  offset?: number
 }) => {
   console.log("Gọi API searchPosts với:", params)
 
