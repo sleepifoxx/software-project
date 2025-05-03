@@ -412,8 +412,10 @@ export default function RoomDetailPage({ id }: { id: string }) {
                       <span>Thời gian phản hồi: {roomData.owner.responseTime}</span>
                     </div>
                   </div>
-
-                  <Button className="w-full">
+                  <Button
+                    className="w-full"
+                    onClick={() => window.open(`tel:${roomData.owner.phone}`)}
+                  >
                     <Phone className="h-4 w-4 mr-2" />
                     {roomData.owner.phone}
                   </Button>

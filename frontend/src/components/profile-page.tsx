@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Mail, Phone, User, MapPin, Calendar, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cookies } from "next/headers"
 
 type UserInfo = {
   id: number
@@ -24,14 +25,15 @@ export default function ProfilePage() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [error, setError] = useState("")
   const [isEditing, setIsEditing] = useState(false)
- const [formData, setFormData] = useState({
-  full_name: "",
-  email: "", // thêm dòng này
-  contact_number: "",
-  address: "",
-  gender: "",
-  birthday: "",
-})
+  const [formData, setFormData] = useState({
+    full_name: "",
+    email: "",
+    contact_number: "",
+    address: "",
+    gender: "",
+    birthday: "",
+    password: "", // Add password field
+  })
 
   // Hàm tải thông tin người dùng
   const loadUserInfo = async () => {
@@ -60,6 +62,7 @@ export default function ProfilePage() {
           address: userInfo.address || "",
           gender: userInfo.gender || "",
           birthday: userInfo.birthday || "",
+          password: "", // Reset password field
         })
         setError("")
         return true
@@ -93,8 +96,15 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!user) return
 
+    // Kiểm tra mật khẩu
+    if (!formData.password.trim()) {
+      setError("Vui lòng nhập mật khẩu để xác nhận thay đổi")
+      return
+    }
+
     try {
       const response = await updateUserInfo(user.id, {
+        password: formData.password, // Include password for verification
         full_name: formData.full_name.trim(),
         contact_number: formData.contact_number.trim(),
         address: formData.address.trim(),
@@ -106,6 +116,8 @@ export default function ProfilePage() {
         // Tải lại dữ liệu
         await loadUserInfo()
         setIsEditing(false)
+        // Reset password field
+        setFormData(prev => ({ ...prev, password: "" }))
       } else {
         setError(response.message || "Cập nhật thông tin thất bại")
       }
@@ -119,15 +131,16 @@ export default function ProfilePage() {
     if (!user) return
     setFormData({
       full_name: user.full_name || "",
-      email: user.email || "", // thêm dòng này
+      email: user.email || "",
       contact_number: user.contact_number || "",
       address: user.address || "",
       gender: user.gender || "",
       birthday: user.birthday || "",
+      password: "", // Reset password field
     })
     setIsEditing(false)
   }
-  
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -169,6 +182,37 @@ export default function ProfilePage() {
                     onChange={handleInputChange}
                     className="pl-10"
                     placeholder="Nguyễn Văn A"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email (không thể thay đổi)</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    className="pl-10 bg-muted"
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              {/* Password field for verification */}
+              <div className="space-y-2">
+                <Label htmlFor="password">Mật khẩu (để xác nhận thay đổi)</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="pl-3"
+                    placeholder="Nhập mật khẩu để xác nhận"
+                    required
                   />
                 </div>
               </div>

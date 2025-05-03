@@ -74,7 +74,6 @@ async def signup(email: str, password: str, contact_number: Optional[str] = None
 async def update_user(
     user_id: int, 
     password: str,
-    email: Optional[str] = None,
     contact_number: Optional[str] = None, 
     full_name: Optional[str] = None, 
     avatar_url: Optional[str] = None, 
@@ -91,7 +90,6 @@ async def update_user(
     user = await db.execute(select(Users).where(Users.id == user_id))
     user_to_update = user.scalars().first()
     if user_to_update:
-        user_to_update.email = email
         user_to_update.password = password
         user_to_update.avatar_url = avatar_url
         user_to_update.contact_number = contact_number
@@ -553,7 +551,7 @@ async def add_comment(
         )
     )
     if existing_comment.scalars().first():
-        return {"status": "fail", "message": "User already commented on this post"}
+        return {"status": "fail", "message": "Bạn đã bình luận cho bài viết này rồi"}
     
     new_comment = PostComments(
         post_id=post_id,
