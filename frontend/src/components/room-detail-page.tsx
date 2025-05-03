@@ -31,18 +31,9 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import axios from "axios"
 import { provinceMap, districtMap } from "@/lib/locations"
 import Footer from "@/components/footer"
@@ -50,16 +41,20 @@ import Footer from "@/components/footer"
 export default function RoomDetailPage({ id }: { id: string }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isFavorite, setIsFavorite] = useState(false)
-  const [showContactForm, setShowContactForm] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [roomData, setRoomData] = useState<any>(null)
   const [images, setImages] = useState<string[]>([])
+  const [rating, setRating] = useState(5)
+  const [comment, setComment] = useState("")
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+
   const typeMap: Record<string, string> = {
     room: "Phòng trọ",
     apartment: "Căn hộ",
     house: "Nhà nguyên căn",
     shared: "Ở ghép",
   }
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -67,30 +62,21 @@ export default function RoomDetailPage({ id }: { id: string }) {
         if (res.data.status === "success") {
           const post = res.data.post
 
-          // Lấy ảnh từ API
           const imageRes = await axios.get(`http://localhost:8000/get-post-images/${id}`)
-          console.log("Image response:", imageRes.data) // Thêm log để debug
-
-          // Xử lý ảnh
           let images = []
           if (imageRes.data.status === "success" && imageRes.data.images) {
             images = imageRes.data.images.map((img: any) => {
-              // Kiểm tra và xử lý URL ảnh
               if (img.image_url) {
-                // Nếu URL ảnh là đường dẫn tương đối, thêm domain
                 if (!img.image_url.startsWith('http')) {
                   return `http://localhost:3000${img.image_url}`
                 }
                 return img.image_url
               }
               return null
-            }).filter(Boolean) // Lọc bỏ các giá trị null
+            }).filter(Boolean)
           }
-
-          console.log("Processed images:", images) // Thêm log để debug
           setImages(images)
 
-          // 👉 GỌI API TIỆN ÍCH
           const convenienceRes = await axios.get(`http://localhost:8000/get-post-convenience/${id}`)
           const convenience = convenienceRes.data.status === "success" ? convenienceRes.data.convenience : {}
 
@@ -107,6 +93,12 @@ export default function RoomDetailPage({ id }: { id: string }) {
           if (convenience.bacony) amenities.push("Ban công")
           if (convenience.elevator) amenities.push("Thang máy")
           if (convenience.pet_allowed) amenities.push("Thú cưng được phép")
+
+          const userRes = await axios.get(`http://localhost:8000/get-user-info?user_id=${post.user_id}`)
+          const user = userRes.data.status === "success" ? userRes.data.user : null
+
+          const commentRes = await axios.get(`http://localhost:8000/get-post-comments/${id}`)
+          const comments = commentRes.data.status === "success" ? commentRes.data.comments : []
 
           const processedPost = {
             ...post,
@@ -132,15 +124,15 @@ export default function RoomDetailPage({ id }: { id: string }) {
               parking: post.vehicle_fee,
             },
             owner: {
-              name: "Chủ trọ",
-              phone: "0123456789",
+              name: user ? user.full_name : "Chủ trọ",
+              phone: user ? user.contact_number : "0123456789",
               avatar: "/placeholder.svg",
               responseRate: 95,
               responseTime: "Trong 1 giờ",
               memberSince: "01/2023",
               verified: true,
             },
-            reviews: [],
+            reviews: comments || [],
             similarListings: [],
           }
 
@@ -158,7 +150,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
     fetchData()
   }, [id])
 
-
   const nextImage = () => {
     if (!roomData) return
     setCurrentImageIndex((prevIndex) => (prevIndex === roomData.images.length - 1 ? 0 : prevIndex + 1))
@@ -173,9 +164,45 @@ export default function RoomDetailPage({ id }: { id: string }) {
     setIsFavorite(!isFavorite)
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    alert("Đã sao chép vào clipboard!")
+  const submitReview = async () => {
+    if (!rating) {
+      alert("Vui lòng chọn số sao đánh giá")
+      return
+    }
+
+    setIsSubmittingReview(true)
+    try {
+      const userId = 1
+
+      const res = await axios.post("http://localhost:8000/add-comment", null, {
+        params: {
+          post_id: parseInt(id),
+          user_id: userId,
+          rating,
+          comment
+        }
+      })
+
+      if (res.data.status === "success") {
+        alert("Đánh giá của bạn đã được ghi nhận!")
+        const commentRes = await axios.get(`http://localhost:8000/get-post-comments/${id}`)
+        if (commentRes.data.status === "success") {
+          setRoomData({
+            ...roomData,
+            reviews: commentRes.data.comments
+          })
+        }
+        setComment("")
+        setRating(5)
+      } else {
+        alert("Có lỗi xảy ra: " + res.data.message)
+      }
+    } catch (error) {
+      console.error("Lỗi khi gửi đánh giá:", error)
+      alert("Không thể gửi đánh giá. Vui lòng thử lại sau.")
+    } finally {
+      setIsSubmittingReview(false)
+    }
   }
 
   if (isLoading) {
@@ -229,25 +256,9 @@ export default function RoomDetailPage({ id }: { id: string }) {
     <div className="flex flex-col min-h-screen">
 
       <main className="flex-1">
-        {/* Breadcrumb */}
-        <div className="container py-4">
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Link href="/" className="hover:text-primary">
-              Trang chủ
-            </Link>
-            <ChevronRight className="h-4 w-4 mx-2" />
-            <Link href="/search" className="hover:text-primary">
-              Tìm phòng
-            </Link>
-            <ChevronRight className="h-4 w-4 mx-2" />
-            <span className="text-foreground">{roomData.title}</span>
-          </div>
-        </div>
 
-        {/* Hình ảnh và thông tin cơ bản */}
         <section className="container py-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Hình ảnh */}
             <div className="space-y-4">
               <div className="relative">
                 <div className="aspect-video relative overflow-hidden rounded-lg">
@@ -307,7 +318,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
               </div>
             </div>
 
-            {/* Thông tin cơ bản */}
             <div className="space-y-6">
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -334,7 +344,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
                     <Heart className={`mr-2 h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
                     {isFavorite ? "Đã lưu" : "Lưu tin"}
                   </Button>
-
                 </div>
               </div>
 
@@ -361,14 +370,16 @@ export default function RoomDetailPage({ id }: { id: string }) {
                 </div>
               </div>
 
-              {/* Thông tin liên hệ */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg">Thông tin liên hệ</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-3">
-
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={roomData.owner.avatar} alt={roomData.owner.name} />
+                      <AvatarFallback>{roomData.owner.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
                     <div>
                       <p className="font-medium flex items-center">
                         {roomData.owner.name}
@@ -402,45 +413,16 @@ export default function RoomDetailPage({ id }: { id: string }) {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button className="w-full">
-                      <Phone className="h-4 w-4 mr-2" />
-                      {roomData.owner.phone}
-                    </Button>
-                    <Button variant="outline" className="w-full" onClick={() => setShowContactForm(!showContactForm)}>
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Nhắn tin
-                    </Button>
-                  </div>
-
-                  {showContactForm && (
-                    <div className="space-y-3 pt-2">
-                      <div className="space-y-1">
-                        <Label htmlFor="name">Họ tên</Label>
-                        <Input id="name" placeholder="Nhập họ tên của bạn" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="phone">Số điện thoại</Label>
-                        <Input id="phone" placeholder="Nhập số điện thoại" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="message">Tin nhắn</Label>
-                        <Textarea
-                          id="message"
-                          placeholder="Tôi quan tâm đến phòng trọ này và muốn biết thêm thông tin..."
-                          className="min-h-[100px]"
-                        />
-                      </div>
-                      <Button className="w-full">Gửi tin nhắn</Button>
-                    </div>
-                  )}
+                  <Button className="w-full">
+                    <Phone className="h-4 w-4 mr-2" />
+                    {roomData.owner.phone}
+                  </Button>
                 </CardContent>
               </Card>
             </div>
           </div>
         </section>
 
-        {/* Thông tin chi tiết */}
         <section className="container py-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
@@ -507,7 +489,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
                 </CardContent>
               </Card>
 
-              {/* Đánh giá */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center">
@@ -517,14 +498,20 @@ export default function RoomDetailPage({ id }: { id: string }) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {roomData.reviews.length > 0 ? (
-                    roomData.reviews.map((review: any) => (
-                      <div key={review.id} className="border-b pb-4 last:border-0 last:pb-0">
+                    roomData.reviews.map((review: any, index: number) => (
+                      <div key={review.id || index} className="border-b pb-4 last:border-0 last:pb-0">
                         <div className="flex justify-between items-start">
                           <div className="flex items-center gap-2">
-
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>
+                                {review.user_id?.toString().charAt(0) || "U"}
+                              </AvatarFallback>
+                            </Avatar>
                             <div>
-                              <p className="font-medium">{review.user.name}</p>
-                              <p className="text-xs text-muted-foreground">{review.date}</p>
+                              <p className="font-medium">Người dùng #{review.user_id}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(review.comment_date).toLocaleDateString()}
+                              </p>
                             </div>
                           </div>
                           <div className="flex">
@@ -536,23 +523,61 @@ export default function RoomDetailPage({ id }: { id: string }) {
                             ))}
                           </div>
                         </div>
-                        <p className="mt-2 text-sm">{review.comment}</p>
+                        <p className="mt-2 text-sm">{review.comment || "Không có nội dung"}</p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-center text-muted-foreground">Chưa có đánh giá nào</p>
+                    <p className="text-center text-muted-foreground py-4">Chưa có đánh giá nào</p>
                   )}
+
+                  <div className="mt-6 pt-6 border-t">
+                    <h3 className="font-medium mb-4">Đánh giá của bạn</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="rating" className="block mb-2">Số sao</Label>
+                        <div className="flex space-x-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Button
+                              key={star}
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="p-1 h-auto"
+                              onClick={() => setRating(star)}
+                            >
+                              <Star
+                                className={`h-6 w-6 ${star <= rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`}
+                              />
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="comment">Nội dung</Label>
+                        <Textarea
+                          id="comment"
+                          placeholder="Chia sẻ trải nghiệm của bạn..."
+                          value={comment}
+                          onChange={(e) => setComment(e.target.value)}
+                          className="min-h-[100px]"
+                        />
+                      </div>
+
+                      <Button
+                        onClick={submitReview}
+                        disabled={isSubmittingReview}
+                        className="w-full"
+                      >
+                        {isSubmittingReview ? "Đang gửi..." : "Gửi đánh giá"}
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
-                <CardFooter>
-                  <Button variant="outline" className="w-full">
-                    Viết đánh giá
-                  </Button>
-                </CardFooter>
               </Card>
             </div>
 
             <div className="space-y-6">
-              {/* Thông tin bài đăng */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Thông tin bài đăng</CardTitle>
@@ -580,8 +605,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
                 </CardContent>
               </Card>
 
-
-              {/* Báo cáo */}
               <div className="text-center">
                 <Button variant="link" size="sm" className="text-muted-foreground">
                   <Info className="h-4 w-4 mr-1" />
@@ -592,7 +615,6 @@ export default function RoomDetailPage({ id }: { id: string }) {
           </div>
         </section>
 
-        {/* Phòng trọ tương tự */}
         <section className="container py-6">
           <h2 className="text-2xl font-bold mb-6">Phòng trọ tương tự</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">

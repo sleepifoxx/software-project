@@ -279,8 +279,8 @@ export default function PostListingPage() {
         <div className="container flex h-14 items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-              <MapPin className="h-5 w-5 text-primary" />
-              <span>NhàTrọ</span>
+              <img src="/favicon.ico" alt="Rent Icon" className="h-10 w-10" />
+              <span>Nhatro.vn</span>
             </Link>
             <h1 className="text-lg font-medium hidden md:block">Đăng tin cho thuê</h1>
           </div>
