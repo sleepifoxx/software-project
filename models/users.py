@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, func
+from sqlalchemy import Column, Integer, String, Date, DateTime, Boolean, func
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -16,8 +16,12 @@ class Users(Base):
     birthday = Column(Date, nullable=True)
     full_name = Column(String, nullable=True)
     created_at = Column(DateTime, default=func.now())
+    is_admin = Column(Boolean, default=False)
 
     posts = relationship('Posts', back_populates='owner', cascade='all, delete-orphan')
+    waiting_posts = relationship('WaitingPosts', back_populates='owner', cascade='all, delete-orphan')
     comments = relationship('PostComments', back_populates='user', cascade='all, delete-orphan')
     user_favourites = relationship('Favourites', back_populates='user', cascade='all, delete-orphan')
     user_history = relationship('History', back_populates='user', cascade='all, delete-orphan')
+    post_reports = relationship('ReportedPosts', back_populates='reporter', cascade='all, delete-orphan')
+    comment_reports = relationship('ReportedComments', back_populates='reporter', cascade='all, delete-orphan')

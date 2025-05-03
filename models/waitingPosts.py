@@ -3,8 +3,8 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
-class Posts(Base):
-    __tablename__ = 'Posts'
+class WaitingPosts(Base):
+    __tablename__ = 'WaitingPosts'
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("Users.id", ondelete='CASCADE'))
@@ -29,10 +29,6 @@ class Posts(Base):
     street = Column(String, nullable=False)
     detailed_address = Column(String, nullable=False)
 
-    owner = relationship('Users', back_populates='posts')
-    images = relationship('PostImages', back_populates='post', cascade='all, delete-orphan')
-    comments = relationship('PostComments', back_populates='post', cascade='all, delete-orphan')
-    user_favourites = relationship('Favourites', back_populates='post', cascade='all, delete-orphan')
-    user_history = relationship('History', back_populates='post', cascade='all, delete-orphan')
-    convinience = relationship('Convinience', back_populates='post', cascade='all, delete-orphan')
-    reports = relationship('ReportedPosts', back_populates='reported_post', cascade='all, delete-orphan')
+    owner = relationship('Users', back_populates='waiting_posts')
+    images = relationship('WaitingImages', back_populates='post', cascade='all, delete-orphan')
+    convinience = relationship('WaitingConvinience', back_populates='post', cascade='all, delete-orphan')

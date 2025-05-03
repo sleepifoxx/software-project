@@ -15,3 +15,4 @@ class PostComments(Base):
 
     post = relationship('Posts', back_populates='comments')
     user = relationship('Users', back_populates='comments')
+    reports = relationship('ReportedComments', back_populates='reported_comment', cascade='all, delete-orphan')
