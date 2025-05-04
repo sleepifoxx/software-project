@@ -491,9 +491,12 @@ async def add_post_images(
             file_path = f"/uploads/{unique_filename}"
             
             # Lưu file vào thư mục public/uploads của frontend
-            BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-            frontend_uploads_dir = os.path.join(BASE_DIR, "frontend", "public", "uploads")
+            # chạy thường
+            # BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            # frontend_uploads_dir = os.path.join(BASE_DIR, "frontend", "public", "uploads")
+            # chạy docker
+            frontend_uploads_dir = os.path.join("/app", "frontend", "public", "uploads")
+            
 
             print(f"📁 Upload directory: {os.path.abspath(frontend_uploads_dir)}")
             os.makedirs(frontend_uploads_dir, exist_ok=True)
