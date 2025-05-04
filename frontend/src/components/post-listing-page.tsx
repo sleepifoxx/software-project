@@ -231,7 +231,7 @@ export default function PostListingPage() {
         }
 
         toast.success("Đăng tin thành công!")
-        router.push(`/room/${postId}`)
+        router.push(`/my-listings`)
       } else {
         throw new Error(res.message || "Thất bại khi tạo bài đăng")
       }

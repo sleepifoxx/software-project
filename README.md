@@ -26,6 +26,10 @@ docker-compose up --build
 3. Truy cập ứng dụng:
 - Frontend: http://localhost:3000
 - Backend API Documentation: http://localhost:8000/docs
+- Admin login: http://localhost:3000/admin/login (default account: abc@gmail.com|12345)
+- Admin dashboard: http://localhost:3000/admin/dashboard
+
+
 
 ### Cách 2: Chạy riêng lẻ từng service
 

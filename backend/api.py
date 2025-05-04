@@ -22,17 +22,41 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
 import uuid
 import os
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Request
 
 
 app = FastAPI(title="Nhatro.vn API", description="API for Nhatro.vn")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # dùng chính xác domain frontend
+    allow_origins=["http://localhost:3000"],  # Thêm domain của frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+security = HTTPBearer()
+
+async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    try:
+        user_id = int(auth_header)
+        result = await db.execute(select(Users).where(Users.id == user_id))
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+
+async def get_current_admin(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user(request, db)
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return user
 
 class ImageInput(BaseModel):
     post_id: int
@@ -154,7 +178,12 @@ async def get_list_of_posts(limit: int, offset: int = 0, db: AsyncSession = Depe
         return {"status": "fail", "message": "Limit must be greater than 0"}
     
     result = await db.execute(
-        select(Posts).order_by(desc(Posts.id)).offset(offset).limit(limit)
+        select(Posts)
+        .where(Posts.status == 'approved')
+        .where(Posts.is_report == False)
+        .order_by(desc(Posts.id))
+        .offset(offset)
+        .limit(limit)
     )
     posts = result.scalars().all()
     return {"status": "success", "posts": posts}
@@ -167,7 +196,10 @@ async def get_posts_by_user(user_id: int, db: AsyncSession = Depends(get_db)):
     Nếu tìm thấy bài viết, trả về danh sách bài viết đó.
     Nếu không tìm thấy, trả về thông báo lỗi.
     """
-    result = await db.execute(select(Posts).where(Posts.user_id == user_id))
+    result = await db.execute(
+        select(Posts)
+        .where(Posts.user_id == user_id)
+    )
     posts = result.scalars().all()
     if posts:
         return {"status": "success", "posts": posts}
@@ -194,7 +226,7 @@ async def get_post_by_id(post_id: int, db: AsyncSession = Depends(get_db)):
     if post:
         return {
             "status": "success",
-            "post": jsonable_encoder(post)  # CHUYỂN VỀ DẠNG JSON
+            "post": jsonable_encoder(post) 
         }
     else:
         return {
@@ -220,11 +252,10 @@ async def create_post(
     district: str = Form(...),
     rural: str = Form(...),
     street: str = Form(...),
-    area:int=Form(...),
+    area: int = Form(...),
     detailed_address: str = Form(...),
     floor_num: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
-    
 ):
     """
     Tạo một bài đăng mới với thông tin cơ bản.
@@ -254,6 +285,8 @@ async def create_post(
         street=street,
         detailed_address=detailed_address,
         area=area,
+        status='pending',  # New posts start as pending
+        is_report=False
     )
     db.add(new_post)
     await db.commit()
@@ -340,7 +373,7 @@ async def search_posts(
     """
     Tìm kiếm bài đăng theo các tiêu chí.
     """
-    query = select(Posts)
+    query = select(Posts).where(Posts.status == 'approved').where(Posts.is_report == False)
     
     if province:
         query = query.where(Posts.province == province)
@@ -381,7 +414,7 @@ async def get_posts_by_filter(
     """
     Lấy danh sách bài đăng với bộ lọc phức tạp bao gồm cả tiện ích.
     """
-    query = select(Posts)
+    query = select(Posts).where(Posts.status == 'approved').where(Posts.is_report == False)
     
     # Apply basic filters
     if province:
@@ -458,7 +491,9 @@ async def add_post_images(
             file_path = f"/uploads/{unique_filename}"
             
             # Lưu file vào thư mục public/uploads của frontend
-            frontend_uploads_dir = os.path.join("/app", "frontend", "public", "uploads")
+            BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+            frontend_uploads_dir = os.path.join(BASE_DIR, "frontend", "public", "uploads")
 
             print(f"📁 Upload directory: {os.path.abspath(frontend_uploads_dir)}")
             os.makedirs(frontend_uploads_dir, exist_ok=True)
@@ -558,26 +593,30 @@ async def add_comment(
         post_id=post_id,
         user_id=user_id,
         rating=rating,
-        comment=comment
+        comment=comment,
+        status='pending',  # New comments start as pending
+        is_report=False
     )
     db.add(new_comment)
-    
-    # Update post average rating
-    avg_rating_query = select(func.avg(PostComments.rating)).where(PostComments.post_id == post_id)
-    avg_rating_result = await db.execute(avg_rating_query)
-    avg_rating = avg_rating_result.scalar()
-    post.avg_rating = avg_rating
-    
     await db.commit()
     await db.refresh(new_comment)
-    return {"status": "success", "message": "Comment added successfully", "comment": new_comment}
+    return {
+        "status": "success", 
+        "message": "Bình luận của bạn đã được gửi và đang chờ duyệt",
+        "comment": new_comment
+    }
 
 @app.get("/get-post-comments/{post_id}", tags=["Bình luận"])
 async def get_post_comments(post_id: int, db: AsyncSession = Depends(get_db)):
     """
     Lấy tất cả bình luận của một bài đăng.
     """
-    result = await db.execute(select(PostComments).where(PostComments.post_id == post_id))
+    result = await db.execute(
+        select(PostComments)
+        .where(PostComments.post_id == post_id)
+        .where(PostComments.status == 'approved')
+        .where(PostComments.is_report == False)
+    )
     comments = result.scalars().all()
     return {"status": "success", "comments": comments}
 
@@ -943,4 +982,217 @@ async def get_user_stats(user_id: int, db: AsyncSession = Depends(get_db)):
             "history_count": history_count
         }
     }
+
+# ----- ADMIN ENDPOINTS -----
+@app.get("/admin/pending-posts", tags=["Admin"])
+async def get_pending_posts(db: AsyncSession = Depends(get_db), admin: Users = Depends(get_current_admin)):
+    """
+    Lấy danh sách bài đăng đang chờ duyệt.
+    """
+    # Join Posts with Users to get user email
+    query = select(Posts, Users.email).join(
+        Users, Posts.user_id == Users.id
+    ).where(
+        Posts.status == 'pending'
+    ).order_by(
+        desc(Posts.post_date)
+    )
+    
+    result = await db.execute(query)
+    posts_with_emails = result.all()
+    
+    # Format response to include user email
+    posts = [
+        {
+            **post.__dict__,
+            "user_email": email
+        }
+        for post, email in posts_with_emails
+    ]
+    
+    return {"status": "success", "posts": posts}
+
+@app.get("/admin/pending-comments", tags=["Admin"])
+async def get_pending_comments(db: AsyncSession = Depends(get_db), admin: Users = Depends(get_current_admin)):
+    """
+    Lấy danh sách bình luận đang chờ duyệt.
+    """
+    # Join PostComments with Users to get user email
+    query = select(PostComments, Users.email).join(
+        Users, PostComments.user_id == Users.id
+    ).where(
+        PostComments.status == 'pending'
+    ).order_by(
+        desc(PostComments.comment_date)
+    )
+    
+    result = await db.execute(query)
+    comments_with_emails = result.all()
+    
+    # Format response to include user email
+    comments = [
+        {
+            **comment.__dict__,
+            "user_email": email
+        }
+        for comment, email in comments_with_emails
+    ]
+    
+    return {"status": "success", "comments": comments}
+
+@app.get("/admin/reported-posts", tags=["Admin"])
+async def get_reported_posts(db: AsyncSession = Depends(get_db), admin: Users = Depends(get_current_admin)):
+    """
+    Lấy danh sách bài đăng bị báo cáo.
+    """
+    # Join Posts with Users to get user email
+    query = select(Posts, Users.email).join(
+        Users, Posts.user_id == Users.id
+    ).where(
+        Posts.is_report == True
+    ).order_by(
+        desc(Posts.post_date)
+    )
+    
+    result = await db.execute(query)
+    posts_with_emails = result.all()
+    
+    # Format response to include user email
+    posts = [
+        {
+            **post.__dict__,
+            "user_email": email
+        }
+        for post, email in posts_with_emails
+    ]
+    
+    return {"status": "success", "posts": posts}
+
+@app.get("/admin/reported-comments", tags=["Admin"])
+async def get_reported_comments(db: AsyncSession = Depends(get_db), admin: Users = Depends(get_current_admin)):
+    """
+    Lấy danh sách bình luận bị báo cáo.
+    """
+    # Join PostComments with Users to get user email
+    query = select(PostComments, Users.email).join(
+        Users, PostComments.user_id == Users.id
+    ).where(
+        PostComments.is_report == True
+    ).order_by(
+        desc(PostComments.comment_date)
+    )
+    
+    result = await db.execute(query)
+    comments_with_emails = result.all()
+    
+    # Format response to include user email
+    comments = [
+        {
+            **comment.__dict__,
+            "user_email": email
+        }
+        for comment, email in comments_with_emails
+    ]
+    
+    return {"status": "success", "comments": comments}
+
+@app.put("/admin/approve-post/{post_id}", tags=["Admin"])
+async def approve_post(post_id: int, db: AsyncSession = Depends(get_db), admin: Users = Depends(get_current_admin)):
+    """
+    Duyệt bài đăng.
+    """
+    result = await db.execute(select(Posts).where(Posts.id == post_id))
+    post = result.scalars().first()
+    if not post:
+        return {"status": "fail", "message": "Post not found"}
+    
+    post.status = 'approved'
+    post.is_report = False
+    await db.commit()
+    return {"status": "success", "message": "Post approved successfully"}
+
+@app.put("/admin/reject-post/{post_id}", tags=["Admin"])
+async def reject_post(post_id: int, db: AsyncSession = Depends(get_db), admin: Users = Depends(get_current_admin)):
+    """
+    Từ chối bài đăng.
+    """
+    result = await db.execute(select(Posts).where(Posts.id == post_id))
+    post = result.scalars().first()
+    if not post:
+        return {"status": "fail", "message": "Post not found"}
+    
+    post.status = 'rejected'
+    await db.commit()
+    return {"status": "success", "message": "Post rejected successfully"}
+
+@app.put("/admin/approve-comment/{comment_id}", tags=["Admin"])
+async def approve_comment(comment_id: int, db: AsyncSession = Depends(get_db), admin: Users = Depends(get_current_admin)):
+    """
+    Duyệt bình luận.
+    """
+    result = await db.execute(select(PostComments).where(PostComments.id == comment_id))
+    comment = result.scalars().first()
+    if not comment:
+        return {"status": "fail", "message": "Comment not found"}
+    
+    comment.status = 'approved'
+    comment.is_report = False
+    await db.commit()
+    return {"status": "success", "message": "Comment approved successfully"}
+
+@app.put("/admin/reject-comment/{comment_id}", tags=["Admin"])
+async def reject_comment(comment_id: int, db: AsyncSession = Depends(get_db), admin: Users = Depends(get_current_admin)):
+    """
+    Từ chối bình luận.
+    """
+    result = await db.execute(select(PostComments).where(PostComments.id == comment_id))
+    comment = result.scalars().first()
+    if not comment:
+        return {"status": "fail", "message": "Comment not found"}
+    
+    comment.status = 'rejected'
+    await db.commit()
+    return {"status": "success", "message": "Comment rejected successfully"}
+
+@app.post("/report-post/{post_id}", tags=["Bài đăng"])
+async def report_post(post_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Báo cáo bài đăng.
+    """
+    result = await db.execute(select(Posts).where(Posts.id == post_id))
+    post = result.scalars().first()
+    if not post:
+        return {"status": "fail", "message": "Post not found"}
+    
+    post.is_report = True
+    await db.commit()
+    return {"status": "success", "message": "Post reported successfully"}
+
+@app.post("/report-comment/{comment_id}", tags=["Bình luận"])
+async def report_comment(comment_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Báo cáo bình luận.
+    """
+    result = await db.execute(select(PostComments).where(PostComments.id == comment_id))
+    comment = result.scalars().first()
+    if not comment:
+        return {"status": "fail", "message": "Comment not found"}
+    
+    comment.is_report = True
+    await db.commit()
+    return {"status": "success", "message": "Comment reported successfully"}
+
+@app.put("/admin/make-admin/{user_id}", tags=["Admin"])
+async def make_admin(user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Chuyển người dùng thành admin.
+    """
+    result = await db.execute(select(Users).where(Users.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        return {"status": "fail", "message": "User not found"}
+    
+    user.is_admin = True
+    await db.commit()
+    return {"status": "success", "message": "User is now an admin"}
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float, DateTime, func
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float, DateTime, func, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -28,6 +28,8 @@ class Posts(Base):
     street = Column(String, nullable=False)
     detailed_address = Column(String, nullable=False)
     area = Column(Integer, nullable=False)
+    status = Column(String, default='pending')  # pending, approved, rejected
+    is_report = Column(Boolean, default=False)
     
     owner = relationship('Users', back_populates='posts')
     images = relationship('PostImages', back_populates='post', cascade='all, delete-orphan')

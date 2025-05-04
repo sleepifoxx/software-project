@@ -47,6 +47,7 @@ export default function RoomDetailPage({ id }: { id: string }) {
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState("")
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const [approvedReviews, setApprovedReviews] = useState<any[]>([])
 
   const typeMap: Record<string, string> = {
     room: "Phòng trọ",
@@ -99,6 +100,10 @@ export default function RoomDetailPage({ id }: { id: string }) {
 
           const commentRes = await axios.get(`http://localhost:8000/get-post-comments/${id}`)
           const comments = commentRes.data.status === "success" ? commentRes.data.comments : []
+          console.log("All comments:", comments)
+          const approvedComments = comments.filter((comment: any) => comment.status === "approved")
+          console.log("Approved comments:", approvedComments)
+          setApprovedReviews(approvedComments)
 
           const processedPost = {
             ...post,
@@ -132,7 +137,7 @@ export default function RoomDetailPage({ id }: { id: string }) {
               memberSince: "01/2023",
               verified: true,
             },
-            reviews: comments || [],
+            reviews: approvedComments,
             similarListings: [],
           }
 
@@ -172,7 +177,15 @@ export default function RoomDetailPage({ id }: { id: string }) {
 
     setIsSubmittingReview(true)
     try {
-      const userId = 1
+      // Get userId from cookie
+      const cookies = document.cookie.split(';')
+      const userIdCookie = cookies.find(cookie => cookie.trim().startsWith('userId='))
+      const userId = userIdCookie ? parseInt(userIdCookie.split('=')[1]) : null
+
+      if (!userId) {
+        alert("Vui lòng đăng nhập để đánh giá")
+        return
+      }
 
       const res = await axios.post("http://localhost:8000/add-comment", null, {
         params: {
@@ -184,14 +197,7 @@ export default function RoomDetailPage({ id }: { id: string }) {
       })
 
       if (res.data.status === "success") {
-        alert("Đánh giá của bạn đã được ghi nhận!")
-        const commentRes = await axios.get(`http://localhost:8000/get-post-comments/${id}`)
-        if (commentRes.data.status === "success") {
-          setRoomData({
-            ...roomData,
-            reviews: commentRes.data.comments
-          })
-        }
+        alert("Đánh giá của bạn đã được gửi và đang chờ duyệt!")
         setComment("")
         setRating(5)
       } else {
@@ -495,39 +501,42 @@ export default function RoomDetailPage({ id }: { id: string }) {
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center">
                     <Star className="h-5 w-5 mr-2 fill-yellow-400 text-yellow-400" />
-                    Đánh giá ({roomData.reviews.length})
+                    Đánh giá ({approvedReviews.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {roomData.reviews.length > 0 ? (
-                    roomData.reviews.map((review: any, index: number) => (
-                      <div key={review.id || index} className="border-b pb-4 last:border-0 last:pb-0">
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback>
-                                {review.user_id?.toString().charAt(0) || "U"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">Người dùng #{review.user_id}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(review.comment_date).toLocaleDateString()}
-                              </p>
+                  {approvedReviews && approvedReviews.length > 0 ? (
+                    approvedReviews.map((review: any, index: number) => {
+                      console.log("Rendering review:", review)
+                      return (
+                        <div key={review.id || index} className="border-b pb-4 last:border-0 last:pb-0">
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback>
+                                  {review.user_id?.toString().charAt(0) || "U"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">Người dùng #{review.user_id}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(review.comment_date).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-4 w-4 ${i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`}
+                                />
+                              ))}
                             </div>
                           </div>
-                          <div className="flex">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`h-4 w-4 ${i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`}
-                              />
-                            ))}
-                          </div>
+                          <p className="mt-2 text-sm">{review.comment || "Không có nội dung"}</p>
                         </div>
-                        <p className="mt-2 text-sm">{review.comment || "Không có nội dung"}</p>
-                      </div>
-                    ))
+                      )
+                    })
                   ) : (
                     <p className="text-center text-muted-foreground py-4">Chưa có đánh giá nào</p>
                   )}
@@ -564,6 +573,10 @@ export default function RoomDetailPage({ id }: { id: string }) {
                           onChange={(e) => setComment(e.target.value)}
                           className="min-h-[100px]"
                         />
+                      </div>
+
+                      <div className="text-sm text-muted-foreground">
+                        <p>Lưu ý: Đánh giá của bạn sẽ được kiểm duyệt trước khi hiển thị công khai.</p>
                       </div>
 
                       <Button

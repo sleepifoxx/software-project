@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, func
+from sqlalchemy import Column, Integer, String, Date, DateTime, func, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -16,6 +16,7 @@ class Users(Base):
     birthday = Column(Date, nullable=True)
     full_name = Column(String, nullable=True)
     created_at = Column(DateTime, default=func.now())
+    is_admin = Column(Boolean, default=False)
 
     posts = relationship('Posts', back_populates='owner', cascade='all, delete-orphan')
     comments = relationship('PostComments', back_populates='user', cascade='all, delete-orphan')
