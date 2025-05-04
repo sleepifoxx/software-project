@@ -10,7 +10,7 @@ Dự án này bao gồm hai phần chính:
 
 ## Cài đặt và chạy dự án
 
-### Cách 1: Sử dụng Docker Compose (Khuyến nghị)
+### Sử dụng Docker Compose (Khuyến nghị)
 
 1. Clone repository:
 ```bash
@@ -28,42 +28,6 @@ docker-compose up --build
 - Backend API Documentation: http://localhost:8000/docs
 - Admin login: http://localhost:3000/admin/login (default account: abc@gmail.com|12345)
 - Admin dashboard: http://localhost:3000/admin/dashboard
-
-
-
-### Cách 2: Chạy riêng lẻ từng service
-
-#### Backend
-1. Vào thư mục backend:
-```bash
-cd backend
-```
-
-2. Cài đặt dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Chạy server:
-```bash
-uvicorn api:app --reload
-```
-
-#### Frontend
-1. Vào thư mục frontend:
-```bash
-cd frontend
-```
-
-2. Cài đặt dependencies:
-```bash
-npm install
-```
-
-3. Chạy development server:
-```bash
-npm run dev
-```
 
 ## Cấu trúc dự án
 
