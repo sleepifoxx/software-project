@@ -42,7 +42,13 @@ export function PageTransition({ children }: PageTransitionProps) {
                 !e.metaKey &&
                 !(link as HTMLAnchorElement).target
             ) {
-                setIsTransitioning(true)
+                // Extract the pathname from the link
+                const linkPath = new URL(link.href).pathname
+
+                // Only set transition if navigating to a different path
+                if (linkPath !== pathname) {
+                    setIsTransitioning(true)
+                }
             }
         }
 
@@ -59,7 +65,7 @@ export function PageTransition({ children }: PageTransitionProps) {
             document.removeEventListener('navigationStart', handleNavigationStart)
             document.removeEventListener('navigationComplete', handleNavigationEnd)
         }
-    }, [])
+    }, [pathname]) // Add pathname to dependency array
 
     // Listen for route changes via Next.js router
     useEffect(() => {

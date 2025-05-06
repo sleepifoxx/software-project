@@ -303,40 +303,20 @@ export default function RentalWebsite() {
               </TabsList>
 
               <TabsContent value="rent" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="md:col-span-2">
-                    <Input
-                      placeholder="Nhập địa điểm, khu vực..."
-                      className="h-10"
-                      value={locationQuery}
-                      onChange={(e) => setLocationQuery(e.target.value)}
-                    />
-                  </div>
-                  <Select
-                    value={priceFilter === "" ? undefined : priceFilter}
-                    onValueChange={(val) => {
-                      if (val === "0") {
-                        setPriceFilter("")
-                      } else {
-                        setPriceFilter(val)
+                <div className="text-center p-4">
+                  <p className="mb-4">Tìm kiếm phòng trọ ưng ý ngay hôm nay</p>
+                  <Link
+                    href="/search"
+                    onClick={(e) => {
+                      if (!Cookies.get("userId")) {
+                        e.preventDefault();
+                        window.location.href = `/search`;
                       }
                     }}
+                    passHref
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Giá tiền" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">-- Bỏ chọn --</SelectItem>
-                      <SelectItem value="1">&lt; 1 triệu</SelectItem>
-                      <SelectItem value="2">1 - 2 triệu</SelectItem>
-                      <SelectItem value="3">2 - 3 triệu</SelectItem>
-                      <SelectItem value="4">3 - 5 triệu</SelectItem>
-                      <SelectItem value="5">&gt; 5 triệu</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button className="h-10" onClick={handleSearch}>
-                    <Search className="mr-2 h-4 w-4" /> Tới trang tìm kiếm
-                  </Button>
+                    <Button>Tới trang tìm kiếm</Button>
+                  </Link>
                 </div>
               </TabsContent>
 

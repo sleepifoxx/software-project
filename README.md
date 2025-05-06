@@ -23,7 +23,7 @@ cd [TÊN_THƯ_MỤC]
 docker-compose up --build
 ```
 
-3. Truy cập ứng dụng:
+3. Truy cập ứng dụng (chú ý phải truy cập đúng địa chỉ localhost thay vì 127.0.0.1):
 - Frontend: http://localhost:3000
 - Backend API Documentation: http://localhost:8000/docs
 - Admin login: http://localhost:3000/admin/login (default account: abc@gmail.com|12345)

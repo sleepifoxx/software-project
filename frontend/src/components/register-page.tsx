@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
 import Footer from "@/components/footer"
+import Header from "@/components/header"
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -93,14 +94,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-            <MapPin className="h-5 w-5 text-primary" />
-            <span>NhàTrọ</span>
-          </Link>
-        </div>
-      </header>
+      <Header />
 
       <main className="flex-1 flex items-center justify-center p-4 bg-muted/40">
         <Card className="w-full max-w-md">
