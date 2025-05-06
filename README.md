@@ -14,13 +14,13 @@ Dự án này bao gồm hai phần chính:
 
 1. Clone repository:
 ```bash
-git clone [URL_REPOSITORY]
-cd [TÊN_THƯ_MỤC]
+git clone https://github.com/sleepifoxx/software-project.git
+cd software-project
 ```
 
 2. Chạy dự án:
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 3. Truy cập ứng dụng (chú ý phải truy cập đúng địa chỉ localhost thay vì 127.0.0.1):
